@@ -7,6 +7,7 @@ import { MessageThread } from '@/components/inbox/message-thread';
 import { ReplyComposer } from '@/components/inbox/reply-composer';
 import { ConversationHeader } from '@/components/inbox/conversation-header';
 import { useConversation, useMarkConversationRead } from '@/lib/hooks/use-conversations';
+import { useMessages } from '@/lib/hooks/use-messages';
 import { useEffect } from 'react';
 
 export default function ConversationPage({
@@ -16,6 +17,7 @@ export default function ConversationPage({
 }) {
   const { orgSlug, workspaceSlug, conversationId } = use(params);
   const { data: conversation } = useConversation(orgSlug, conversationId);
+  const { data: messagesData } = useMessages(orgSlug, conversationId);
   const markRead = useMarkConversationRead(orgSlug, workspaceSlug);
 
   useEffect(() => {
@@ -32,6 +34,7 @@ export default function ConversationPage({
           orgSlug={orgSlug}
           workspaceSlug={workspaceSlug}
           conversation={conversation}
+          messageCount={messagesData?.data.length}
         />
         <div className="relative min-h-0 flex-1">
           <MessageThread orgSlug={orgSlug} conversationId={conversationId} />

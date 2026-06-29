@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useConnectedAccounts } from '@/lib/hooks/use-connected-accounts';
 import { useUploadMedia } from '@/lib/hooks/use-media';
 import { useCreatePost, useUpdatePost, type Post } from '@/lib/hooks/use-posts';
+import { useGenerateHashtags, useOptimizeForPlatform } from '@/lib/hooks/use-ai';
 import { PLATFORM_LIMITS, validatePost } from '@/lib/platform-limits';
 
 interface PostComposerProps {
@@ -40,6 +41,7 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
     editPost?.scheduledAt ? format(new Date(editPost.scheduledAt), "yyyy-MM-dd'T'HH:mm") : '',
   );
   const [dragOver, setDragOver] = useState(false);
+  const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
 
   const selectedAccount = accounts.find((a) => a.id === accountId);
   const platform = selectedAccount?.platform ?? '';
@@ -49,6 +51,8 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
   const createPost = useCreatePost(orgSlug, workspaceSlug);
   const updatePost = useUpdatePost(orgSlug, workspaceSlug, editPost?.id ?? '');
   const uploadMedia = useUploadMedia(orgSlug);
+  const generateHashtags = useGenerateHashtags(orgSlug);
+  const optimizeCaption = useOptimizeForPlatform(orgSlug);
 
   const isPending = createPost.isPending || updatePost.isPending || uploadMedia.isPending;
 
@@ -58,6 +62,23 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
       const result = await uploadMedia.mutateAsync({ file });
       setMediaUrls((prev) => [...prev, result.publicUrl]);
     }
+  };
+
+  const handleHashtags = async () => {
+    if (!caption.trim() || !platform) return;
+    const tags = await generateHashtags.mutateAsync({ caption, platform });
+    setSuggestedHashtags(tags);
+  };
+
+  const applyHashtag = (tag: string) => {
+    setCaption((prev) => `${prev}${prev.endsWith(' ') || prev === '' ? '' : ' '}${tag}`);
+  };
+
+  const handleOptimize = async () => {
+    if (!caption.trim() || !platform) return;
+    const optimized = await optimizeCaption.mutateAsync({ caption, platform });
+    setCaption(optimized);
+    setSuggestedHashtags([]);
   };
 
   const handleSubmit = async (action: 'draft' | 'schedule', e: React.FormEvent) => {
@@ -102,11 +123,55 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
       <div>
         <div className="mb-1.5 flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">Caption</label>
-          {limits && <CharCounter text={caption} limit={limits.charLimit} />}
+          <div className="flex items-center gap-3">
+            {platform && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void handleHashtags()}
+                  disabled={!caption.trim() || generateHashtags.isPending}
+                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-40"
+                  title="Generate hashtags"
+                >
+                  {generateHashtags.isPending ? (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  ) : (
+                    <span className="font-medium">#</span>
+                  )}
+                  Hashtags
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleOptimize()}
+                  disabled={!caption.trim() || optimizeCaption.isPending}
+                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 disabled:opacity-40"
+                  title={`Optimize for ${limits?.label ?? platform}`}
+                >
+                  {optimizeCaption.isPending ? (
+                    <span className="h-3 w-3 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
+                  ) : (
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 10V3L4 14h7v7l9-11h-7z"
+                      />
+                    </svg>
+                  )}
+                  Optimize
+                </button>
+              </>
+            )}
+            {limits && <CharCounter text={caption} limit={limits.charLimit} />}
+          </div>
         </div>
         <textarea
           value={caption}
-          onChange={(e) => setCaption(e.target.value)}
+          onChange={(e) => {
+            setCaption(e.target.value);
+            setSuggestedHashtags([]);
+          }}
           rows={6}
           placeholder={
             limits
@@ -115,6 +180,28 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
           }
           className="w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
+
+        {suggestedHashtags.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {suggestedHashtags.map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => applyHashtag(tag)}
+                className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-xs text-indigo-700 hover:bg-indigo-100"
+              >
+                {tag}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => setSuggestedHashtags([])}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              Clear
+            </button>
+          </div>
+        )}
       </div>
 
       <div>

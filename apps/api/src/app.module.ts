@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { aiConfig } from './config/ai.config';
 import { appConfig } from './config/app.config';
 import { awsConfig } from './config/aws.config';
 import { databaseConfig } from './config/database.config';
@@ -37,6 +38,7 @@ import { WorkersModule } from './workers/workers.module';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
+        aiConfig,
         appConfig,
         databaseConfig,
         redisConfig,

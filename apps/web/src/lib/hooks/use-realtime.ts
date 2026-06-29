@@ -8,7 +8,7 @@ import { queryKeys } from '@/lib/query-keys';
 import { useRealtimeStore } from '@/stores/realtime.store';
 
 export function useRealtime(workspaceId?: string) {
-  const { setSocket, setConnected } = useRealtimeStore();
+  const { setSocket, setConnected, setSuggestions } = useRealtimeStore();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -62,10 +62,17 @@ export function useRealtime(workspaceId?: string) {
       void queryClient.invalidateQueries({ queryKey: ['notifications'] });
     });
 
+    socket.on(
+      'suggestion:ready',
+      (data: { messageId: string; conversationId: string; suggestions: string[] }) => {
+        setSuggestions(data.conversationId, data.suggestions);
+      },
+    );
+
     return () => {
       socket.disconnect();
       setSocket(null);
       setConnected(false);
     };
-  }, [workspaceId, queryClient, setSocket, setConnected]);
+  }, [workspaceId, queryClient, setSocket, setConnected, setSuggestions]);
 }

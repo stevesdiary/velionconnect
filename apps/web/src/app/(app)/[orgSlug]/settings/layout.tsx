@@ -9,6 +9,7 @@ const navItems = [
   { label: 'Members', href: 'members' },
   { label: 'Workspaces', href: 'workspaces' },
   { label: 'Channels', href: 'channels' },
+  { label: 'Brand Voice', href: 'brand-voice' },
 ];
 
 export default function SettingsLayout({

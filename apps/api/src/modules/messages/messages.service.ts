@@ -3,6 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import {
   MessageDirection,
   MessageStatus,
@@ -15,6 +17,7 @@ import { RealtimeGateway } from '../../gateways/realtime.gateway';
 import { ConnectedAccountsService } from '../connectors/connected-accounts.service';
 import { ConnectorFactory } from '../connectors/connector.factory';
 import { ConversationsService } from '../conversations/conversations.service';
+import { AI_SUGGESTION_QUEUE } from '../ai/ai.module';
 
 import { SendMessageDto } from './dto/send-message.dto';
 
@@ -37,6 +40,7 @@ export class MessagesService {
     private readonly connectorFactory: ConnectorFactory,
     private readonly conversations: ConversationsService,
     private readonly gateway: RealtimeGateway,
+    @InjectQueue(AI_SUGGESTION_QUEUE) private readonly aiQueue: Queue,
   ) {}
 
   async findAll(
@@ -128,6 +132,20 @@ export class MessagesService {
         message,
       });
     }
+
+    // Fire-and-forget AI suggestion generation
+    void this.aiQueue
+      .add(
+        'generate-suggestions',
+        {
+          messageId: message.id,
+          conversationId: input.conversationId,
+          organizationId: conv?.organizationId ?? '',
+          workspaceId: conv?.workspaceId ?? null,
+        },
+        { attempts: 1, removeOnComplete: true, removeOnFail: true },
+      )
+      .catch(() => void 0);
 
     return message;
   }
