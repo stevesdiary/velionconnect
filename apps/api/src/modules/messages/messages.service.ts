@@ -11,6 +11,7 @@ import {
 } from '@velion/types';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { RealtimeGateway } from '../../gateways/realtime.gateway';
 import { ConnectedAccountsService } from '../connectors/connected-accounts.service';
 import { ConnectorFactory } from '../connectors/connector.factory';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -35,6 +36,7 @@ export class MessagesService {
     private readonly connectedAccounts: ConnectedAccountsService,
     private readonly connectorFactory: ConnectorFactory,
     private readonly conversations: ConversationsService,
+    private readonly gateway: RealtimeGateway,
   ) {}
 
   async findAll(
@@ -105,6 +107,27 @@ export class MessagesService {
       input.sentAt,
     );
     await this.conversations.incrementUnread(input.conversationId);
+
+    // Emit real-time event — find workspace from conversation
+    const conv = await this.prisma.conversation.findUnique({
+      where: { id: input.conversationId },
+      select: { workspaceId: true, organizationId: true },
+    });
+    if (conv?.workspaceId) {
+      this.gateway.emitToWorkspace(conv.workspaceId, 'message:new', {
+        conversationId: input.conversationId,
+        message,
+      });
+      this.gateway.emitToWorkspace(conv.workspaceId, 'conversation:updated', {
+        conversationId: input.conversationId,
+        changes: { lastMessagePreview: input.content, unreadCount: 1 },
+      });
+    } else if (conv?.organizationId) {
+      this.gateway.emitToOrg(conv.organizationId, 'message:new', {
+        conversationId: input.conversationId,
+        message,
+      });
+    }
 
     return message;
   }
