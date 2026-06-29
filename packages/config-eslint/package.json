@@ -1,0 +1,12 @@
+{
+  "name": "@velion/config-eslint",
+  "version": "0.0.1",
+  "private": true,
+  "files": ["*.js"],
+  "dependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint-import-resolver-typescript": "^3.7.0",
+    "eslint-plugin-import": "^2.31.0"
+  }
+}

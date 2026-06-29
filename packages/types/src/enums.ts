@@ -1,0 +1,90 @@
+export enum Platform {
+  INSTAGRAM = 'INSTAGRAM',
+  FACEBOOK = 'FACEBOOK',
+  WHATSAPP = 'WHATSAPP',
+  LINKEDIN = 'LINKEDIN',
+  TWITTER = 'TWITTER',
+  TIKTOK = 'TIKTOK',
+}
+
+export enum OrgRole {
+  OWNER = 'OWNER',
+  ADMIN = 'ADMIN',
+  MEMBER = 'MEMBER',
+  VIEWER = 'VIEWER',
+}
+
+export enum PlanType {
+  FREE = 'FREE',
+  STARTER = 'STARTER',
+  GROWTH = 'GROWTH',
+  ENTERPRISE = 'ENTERPRISE',
+}
+
+export enum ConversationStatus {
+  OPEN = 'OPEN',
+  PENDING = 'PENDING',
+  RESOLVED = 'RESOLVED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum ConversationChannel {
+  INSTAGRAM_DM = 'INSTAGRAM_DM',
+  INSTAGRAM_COMMENT = 'INSTAGRAM_COMMENT',
+  FACEBOOK_MESSENGER = 'FACEBOOK_MESSENGER',
+  FACEBOOK_COMMENT = 'FACEBOOK_COMMENT',
+  WHATSAPP = 'WHATSAPP',
+  LINKEDIN_DM = 'LINKEDIN_DM',
+  LINKEDIN_COMMENT = 'LINKEDIN_COMMENT',
+}
+
+export enum MessageDirection {
+  INBOUND = 'INBOUND',
+  OUTBOUND = 'OUTBOUND',
+}
+
+export enum MessageStatus {
+  SENDING = 'SENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  READ = 'READ',
+  FAILED = 'FAILED',
+}
+
+export enum MessageType {
+  TEXT = 'TEXT',
+  IMAGE = 'IMAGE',
+  VIDEO = 'VIDEO',
+  AUDIO = 'AUDIO',
+  DOCUMENT = 'DOCUMENT',
+  STICKER = 'STICKER',
+  REACTION = 'REACTION',
+  STORY_MENTION = 'STORY_MENTION',
+  COMMENT = 'COMMENT',
+  SYSTEM = 'SYSTEM',
+}
+
+export enum PostStatus {
+  DRAFT = 'DRAFT',
+  SCHEDULED = 'SCHEDULED',
+  PUBLISHING = 'PUBLISHING',
+  PUBLISHED = 'PUBLISHED',
+  FAILED = 'FAILED',
+}
+
+export enum AccountStatus {
+  CONNECTED = 'CONNECTED',
+  DISCONNECTED = 'DISCONNECTED',
+  TOKEN_EXPIRED = 'TOKEN_EXPIRED',
+  ERROR = 'ERROR',
+}
+
+export enum NotificationType {
+  NEW_MESSAGE = 'NEW_MESSAGE',
+  MENTIONED = 'MENTIONED',
+  ASSIGNED = 'ASSIGNED',
+  COMMENT = 'COMMENT',
+  POST_PUBLISHED = 'POST_PUBLISHED',
+  POST_FAILED = 'POST_FAILED',
+  SYSTEM = 'SYSTEM',
+}

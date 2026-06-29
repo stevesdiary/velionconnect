@@ -1,0 +1,29 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
+
+import { CryptoService } from '../../common/crypto.service';
+
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { MagicLinkService } from './magic-link.service';
+import { JwtStrategy } from './strategies/jwt.strategy';
+
+@Module({
+  imports: [
+    PassportModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('jwt.accessSecret'),
+        signOptions: { expiresIn: config.get<string>('jwt.accessExpiresIn') },
+      }),
+    }),
+  ],
+  controllers: [AuthController],
+  providers: [AuthService, MagicLinkService, JwtStrategy, CryptoService],
+  exports: [AuthService, JwtModule],
+})
+export class AuthModule {}
