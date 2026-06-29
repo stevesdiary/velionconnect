@@ -19,7 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await apiClient.post('/auth/login', { email, password });
-      router.push('/');
+      router.push('/onboarding');
     } catch {
       setError('Invalid email or password');
     } finally {
@@ -28,11 +28,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-      <h2 className="text-xl font-semibold text-gray-900 mb-6">Sign in</h2>
+    <div className="rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
+      <h2 className="mb-6 text-xl font-semibold text-gray-900">Sign in</h2>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Email</label>
           <input
             type="email"
             value={email}
@@ -42,7 +42,7 @@ export default function LoginPage() {
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Password</label>
           <input
             type="password"
             value={password}
@@ -60,7 +60,7 @@ export default function LoginPage() {
           {loading ? 'Signing in...' : 'Sign in'}
         </button>
       </form>
-      <div className="mt-4 text-center space-y-2">
+      <div className="mt-4 space-y-2 text-center">
         <p className="text-sm text-gray-500">
           <Link href="/magic-link/request" className="text-blue-600 hover:underline">
             Sign in with magic link
