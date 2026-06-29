@@ -1,5 +1,6 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 
@@ -7,13 +8,15 @@ import { appConfig } from './config/app.config';
 import { awsConfig } from './config/aws.config';
 import { databaseConfig } from './config/database.config';
 import { jwtConfig } from './config/jwt.config';
+import { linkedinConfig } from './config/linkedin.config';
+import { metaConfig } from './config/meta.config';
 import { redisConfig } from './config/redis.config';
 import { AiModule } from './modules/ai/ai.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ConnectorsModule } from './modules/connectors/connectors.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
-import { ConnectorsModule } from './modules/connectors/connectors.module';
 import { InvitesModule } from './modules/invites/invites.module';
 import { MediaModule } from './modules/media/media.module';
 import { MessagesModule } from './modules/messages/messages.module';
@@ -25,12 +28,36 @@ import { UsersModule } from './modules/users/users.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { WorkersModule } from './workers/workers.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [appConfig, databaseConfig, redisConfig, jwtConfig, awsConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        redisConfig,
+        jwtConfig,
+        awsConfig,
+        metaConfig,
+        linkedinConfig,
+      ],
+    }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl =
+          config.get<string>('redis.url') ?? 'redis://localhost:6379';
+        const url = new URL(redisUrl);
+        return {
+          connection: {
+            host: url.hostname,
+            port: parseInt(url.port || '6379', 10),
+            password: url.password || undefined,
+          },
+        };
+      },
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
@@ -40,11 +67,12 @@ import { PrismaModule } from './prisma/prisma.module';
     OrganizationsModule,
     WorkspacesModule,
     InvitesModule,
+    ConnectorsModule,
     ContactsModule,
     ConversationsModule,
     MessagesModule,
-    ConnectorsModule,
     WebhooksModule,
+    WorkersModule,
     PublishingModule,
     MediaModule,
     AiModule,

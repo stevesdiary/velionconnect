@@ -8,6 +8,7 @@ const navItems = [
   { label: 'Organization', href: 'organization' },
   { label: 'Members', href: 'members' },
   { label: 'Workspaces', href: 'workspaces' },
+  { label: 'Channels', href: 'channels' },
 ];
 
 export default function SettingsLayout({
