@@ -14,6 +14,7 @@ import { redisConfig } from './config/redis.config';
 import { storageConfig } from './config/storage.config';
 import { GatewaysModule } from './gateways/gateways.module';
 import { AiModule } from './modules/ai/ai.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -82,6 +83,7 @@ import { WorkersModule } from './workers/workers.module';
     PublishingModule,
     MediaModule,
     AiModule,
+    AnalyticsModule,
     NotificationsModule,
     SearchModule,
     AuditModule,

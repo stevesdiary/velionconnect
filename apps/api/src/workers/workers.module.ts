@@ -13,6 +13,7 @@ import { WEBHOOK_QUEUE } from '../modules/webhooks/webhooks.service';
 
 import { AiSuggestionWorker } from './ai-suggestion.worker';
 import { PostPublisherWorker } from './post-publisher.worker';
+import { TokenRefreshWorker } from './token-refresh.worker';
 import { WebhookProcessorWorker } from './webhook-processor.worker';
 
 @Module({
@@ -28,6 +29,11 @@ import { WebhookProcessorWorker } from './webhook-processor.worker';
     MessagesModule,
     PublishingModule,
   ],
-  providers: [WebhookProcessorWorker, PostPublisherWorker, AiSuggestionWorker],
+  providers: [
+    WebhookProcessorWorker,
+    PostPublisherWorker,
+    AiSuggestionWorker,
+    TokenRefreshWorker,
+  ],
 })
 export class WorkersModule {}
