@@ -6,14 +6,15 @@ import { ThrottlerModule } from '@nestjs/throttler';
 
 import { aiConfig } from './config/ai.config';
 import { appConfig } from './config/app.config';
-import { awsConfig } from './config/aws.config';
 import { databaseConfig } from './config/database.config';
 import { jwtConfig } from './config/jwt.config';
 import { linkedinConfig } from './config/linkedin.config';
 import { metaConfig } from './config/meta.config';
 import { redisConfig } from './config/redis.config';
+import { storageConfig } from './config/storage.config';
 import { GatewaysModule } from './gateways/gateways.module';
 import { AiModule } from './modules/ai/ai.module';
+import { StorageModule } from './modules/storage/storage.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ConnectorsModule } from './modules/connectors/connectors.module';
@@ -43,7 +44,7 @@ import { WorkersModule } from './workers/workers.module';
         databaseConfig,
         redisConfig,
         jwtConfig,
-        awsConfig,
+        storageConfig,
         metaConfig,
         linkedinConfig,
       ],
@@ -66,6 +67,7 @@ import { WorkersModule } from './workers/workers.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     ScheduleModule.forRoot(),
     PrismaModule,
+    StorageModule,
     AuthModule,
     UsersModule,
     OrganizationsModule,

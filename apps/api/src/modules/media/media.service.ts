@@ -1,60 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import {
-  DeleteObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { ObjectStorageService } from '../storage/object-storage.service';
 
-export interface PresignedUploadResult {
-  uploadUrl: string;
-  key: string;
-  publicUrl: string;
-}
+export { PresignedUploadResult } from '../storage/object-storage.service';
 
 @Injectable()
 export class MediaService {
-  private readonly s3: S3Client;
-  private readonly bucket: string;
-  private readonly region: string;
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly config: ConfigService,
-  ) {
-    this.region = config.get<string>('aws.region') ?? 'us-east-1';
-    this.bucket = config.get<string>('aws.s3Bucket') ?? '';
-    this.s3 = new S3Client({
-      region: this.region,
-      credentials: {
-        accessKeyId: config.get<string>('aws.accessKeyId') ?? '',
-        secretAccessKey: config.get<string>('aws.secretAccessKey') ?? '',
-      },
-    });
-  }
+    private readonly storage: ObjectStorageService,
+  ) {}
 
-  async getPresignedUpload(
-    orgId: string,
-    mimeType: string,
-    filename: string,
-  ): Promise<PresignedUploadResult> {
+  async getPresignedUpload(orgId: string, mimeType: string, filename: string) {
     const ext = filename.split('.').pop() ?? 'bin';
     const key = `media/${orgId}/${randomUUID()}.${ext}`;
-
-    const command = new PutObjectCommand({
-      Bucket: this.bucket,
-      Key: key,
-      ContentType: mimeType,
-    });
-
-    const uploadUrl = await getSignedUrl(this.s3, command, { expiresIn: 300 });
-    const publicUrl = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${key}`;
-
-    return { uploadUrl, key, publicUrl };
+    return this.storage.presignUpload(key, mimeType);
   }
 
   async confirmUpload(
@@ -70,7 +32,7 @@ export class MediaService {
       height?: number;
     },
   ) {
-    const url = `https://${this.bucket}.s3.${this.region}.amazonaws.com/${dto.key}`;
+    const url = this.storage.publicUrl(dto.key);
     const filename = dto.key.split('/').pop() ?? dto.key;
 
     return this.prisma.media.create({
@@ -107,11 +69,9 @@ export class MediaService {
     });
     if (!media) throw new NotFoundException('Media not found');
 
-    const key = media.url.split('.amazonaws.com/')[1];
+    const key = this.storage.keyFromUrl(media.url);
     if (key) {
-      await this.s3.send(
-        new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
-      );
+      await this.storage.deleteObject(key);
     }
 
     await this.prisma.media.update({
