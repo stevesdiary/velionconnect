@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 
 import { useOrganization } from '@/lib/hooks/use-organizations';
+import { apiClient } from '@/lib/api-client';
 
 export default function OrgLayout({
   children,
@@ -26,18 +27,15 @@ export default function OrgLayout({
             </span>
           )}
         </div>
-        <a
-          href="/login"
-          onClick={async (e) => {
-            e.preventDefault();
-            const { apiClient } = await import('@/lib/api-client');
+        <button
+          onClick={async () => {
             await apiClient.post('/auth/logout').catch(() => null);
             window.location.href = '/login';
           }}
           className="text-sm text-gray-500 hover:text-gray-900"
         >
           Sign out
-        </a>
+        </button>
       </header>
       {children}
     </div>

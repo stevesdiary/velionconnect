@@ -1,7 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
@@ -13,23 +14,27 @@ export default function MagicLinkVerifyPage() {
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid link — no token found.');
+      startTransition(() => setError('Invalid link — no token found.'));
       return;
     }
 
     apiClient
       .post('/auth/magic-link/verify', { token })
       .then(() => router.push('/onboarding'))
-      .catch(() => setError('This link is invalid or has expired. Please request a new one.'));
+      .catch(() =>
+        startTransition(() =>
+          setError('This link is invalid or has expired. Please request a new one.'),
+        ),
+      );
   }, [token, router]);
 
   if (error) {
     return (
       <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
         <p className="mb-4 text-sm text-red-600">{error}</p>
-        <a href="/magic-link/request" className="text-sm text-blue-600 hover:underline">
+        <Link href="/magic-link/request" className="text-sm text-blue-600 hover:underline">
           Request a new magic link
-        </a>
+        </Link>
       </div>
     );
   }

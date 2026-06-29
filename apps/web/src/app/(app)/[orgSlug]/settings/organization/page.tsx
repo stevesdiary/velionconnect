@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 
 import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 
@@ -16,10 +16,12 @@ export default function OrganizationSettingsPage({ params }: { params: { orgSlug
 
   useEffect(() => {
     if (org) {
-      setName(org.name);
-      setTimezone(org.timezone);
-      setLocale(org.locale);
-      setCurrency(org.currency);
+      startTransition(() => {
+        setName(org.name);
+        setTimezone(org.timezone);
+        setLocale(org.locale);
+        setCurrency(org.currency);
+      });
     }
   }, [org]);
 

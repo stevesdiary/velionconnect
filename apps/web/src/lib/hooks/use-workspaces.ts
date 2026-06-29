@@ -14,6 +14,14 @@ export interface Workspace {
   createdAt: string;
 }
 
+export function useWorkspace(workspaceSlug: string, orgSlug?: string) {
+  const query = useWorkspaces(orgSlug ?? '');
+  return {
+    ...query,
+    data: query.data?.find((w) => w.slug === workspaceSlug),
+  };
+}
+
 export function useWorkspaces(orgSlug: string) {
   return useQuery({
     queryKey: ['workspaces', orgSlug],

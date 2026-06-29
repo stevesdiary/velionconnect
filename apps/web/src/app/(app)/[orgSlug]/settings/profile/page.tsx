@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 import { useMe } from '@/lib/hooks/use-me';
@@ -16,8 +16,10 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     if (me) {
-      setFullName(me.fullName);
-      setTimezone(me.timezone);
+      startTransition(() => {
+        setFullName(me.fullName);
+        setTimezone(me.timezone);
+      });
     }
   }, [me]);
 
