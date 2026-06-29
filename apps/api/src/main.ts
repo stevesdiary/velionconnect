@@ -1,7 +1,8 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import * as cookieParser from 'cookie-parser';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const cookieParser = require('cookie-parser') as typeof import('cookie-parser');
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
@@ -15,7 +16,9 @@ async function bootstrap() {
   app.use(cookieParser());
 
   app.enableCors({
-    origin: process.env['CORS_ORIGINS']?.split(',') ?? ['http://localhost:3000'],
+    origin: process.env['CORS_ORIGINS']?.split(',') ?? [
+      'http://localhost:3000',
+    ],
     credentials: true,
   });
 
