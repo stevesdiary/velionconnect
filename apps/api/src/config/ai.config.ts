@@ -1,0 +1,5 @@
+import { registerAs } from '@nestjs/config';
+
+export const aiConfig = registerAs('ai', () => ({
+  anthropicApiKey: process.env['ANTHROPIC_API_KEY'] ?? '',
+}));

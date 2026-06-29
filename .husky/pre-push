@@ -1,0 +1,3 @@
+# Typecheck all packages except @velion/api until `prisma generate` has been run locally.
+# After running `pnpm --filter @velion/api exec prisma generate`, remove the filter.
+pnpm turbo typecheck --filter=!@velion/api
