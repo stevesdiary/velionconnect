@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { AppController } from './app.controller';
 import { aiConfig } from './config/ai.config';
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
@@ -88,5 +89,6 @@ import { WorkersModule } from './workers/workers.module';
     SearchModule,
     AuditModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}
