@@ -11,13 +11,15 @@ export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<OrgRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<OrgRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
     if (!requiredRoles || requiredRoles.length === 0) return true;
 
-    const request = context.switchToHttp().getRequest<Request & { user: JwtPayload; orgRole?: OrgRole }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user: JwtPayload; orgRole?: OrgRole }>();
     const userOrgRole = request.orgRole;
     if (!userOrgRole) return false;
 
@@ -29,6 +31,8 @@ export class RolesGuard implements CanActivate {
     };
 
     const userLevel = roleHierarchy[userOrgRole] ?? 0;
-    return requiredRoles.some((role) => userLevel >= (roleHierarchy[role] ?? 0));
+    return requiredRoles.some(
+      (role) => userLevel >= (roleHierarchy[role] ?? 0),
+    );
   }
 }
