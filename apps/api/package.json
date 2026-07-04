@@ -54,6 +54,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
@@ -68,6 +69,10 @@
     "@types/qrcode": "^1.5.6",
     "@types/supertest": "^7.0.0",
     "@velion/config-typescript": "workspace:*",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "globals": "^17.7.0",
     "jest": "^30.0.0",
     "prisma": "^6.2.1",
     "supertest": "^7.0.0",
@@ -75,7 +80,8 @@
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.62.1"
   },
   "jest": {
     "moduleFileExtensions": [
