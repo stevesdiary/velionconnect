@@ -58,9 +58,12 @@ export class AnalyticsService {
       }),
       this.prisma.message.findMany({
         where: {
-          organizationId: orgId,
           createdAt: { gte: from, lte: to },
-          conversation: { workspaceId: workspace.id, deletedAt: null },
+          conversation: {
+            organizationId: orgId,
+            workspaceId: workspace.id,
+            deletedAt: null,
+          },
         },
         select: { direction: true, createdAt: true },
       }),

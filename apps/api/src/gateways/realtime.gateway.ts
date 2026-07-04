@@ -9,7 +9,10 @@ import {
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { parse } from 'cookie';
+
+const { parse } = require('cookie') as {
+  parse: (str: string) => Record<string, string>;
+};
 import Redis from 'ioredis';
 import { Server, Socket } from 'socket.io';
 
@@ -69,14 +72,14 @@ export class RealtimeGateway
       const memberships = await this.prisma.organizationMember.findMany({
         where: { userId: payload.sub },
         include: {
-          workspaceMembers: { include: { workspace: true } },
+          workspaces: { include: { workspace: true } },
           organization: true,
         },
       });
 
       for (const m of memberships) {
         await socket.join(`org:${m.organizationId}`);
-        for (const wm of m.workspaceMembers) {
+        for (const wm of m.workspaces) {
           await socket.join(`workspace:${wm.workspaceId}`);
         }
       }
