@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import { useCreateInvite, useInvites, useRevokeInvite } from '@/lib/hooks/use-invites';
 import { useOrgMembers, useRemoveMember } from '@/lib/hooks/use-organizations';
@@ -8,8 +8,8 @@ import { useMe } from '@/lib/hooks/use-me';
 
 const ROLE_OPTIONS = ['ADMIN', 'MEMBER', 'VIEWER'];
 
-export default function MembersSettingsPage({ params }: { params: { orgSlug: string } }) {
-  const { orgSlug } = params;
+export default function MembersSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+  const { orgSlug } = use(params);
   const { data: me } = useMe();
   const { data: members, isLoading: loadingMembers } = useOrgMembers(orgSlug);
   const { data: invites } = useInvites(orgSlug);

@@ -1,5 +1,7 @@
 'use client';
 
+import { use } from 'react';
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -18,9 +20,9 @@ export default function SettingsLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { orgSlug: string };
+  params: Promise<{ orgSlug: string }>;
 }) {
-  const { orgSlug } = params;
+  const { orgSlug } = use(params);
   const pathname = usePathname();
 
   return (

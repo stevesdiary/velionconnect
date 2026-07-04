@@ -1,11 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import { useCreateWorkspace, useDeleteWorkspace, useWorkspaces } from '@/lib/hooks/use-workspaces';
 
-export default function WorkspacesSettingsPage({ params }: { params: { orgSlug: string } }) {
-  const { orgSlug } = params;
+export default function WorkspacesSettingsPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
+  const { orgSlug } = use(params);
   const { data: workspaces, isLoading } = useWorkspaces(orgSlug);
   const createWorkspace = useCreateWorkspace(orgSlug);
   const deleteWorkspace = useDeleteWorkspace(orgSlug);

@@ -1,13 +1,15 @@
 'use client';
 
+import { use } from 'react';
+
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 import { useAcceptInvite, useInviteByToken } from '@/lib/hooks/use-invites';
 import { useMe } from '@/lib/hooks/use-me';
 
-export default function InvitePage({ params }: { params: { token: string } }) {
-  const { token } = params;
+export default function InvitePage({ params }: { params: Promise<{ token: string }> }) {
+  const { token } = use(params);
   const router = useRouter();
   const { data: me } = useMe();
   const { data: invite, isLoading, isError } = useInviteByToken(token);

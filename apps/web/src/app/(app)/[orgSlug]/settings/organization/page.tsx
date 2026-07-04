@@ -1,11 +1,15 @@
 'use client';
 
-import { startTransition, useEffect, useState } from 'react';
+import { startTransition, use, useEffect, useState } from 'react';
 
 import { useOrganization, useUpdateOrganization } from '@/lib/hooks/use-organizations';
 
-export default function OrganizationSettingsPage({ params }: { params: { orgSlug: string } }) {
-  const { orgSlug } = params;
+export default function OrganizationSettingsPage({
+  params,
+}: {
+  params: Promise<{ orgSlug: string }>;
+}) {
+  const { orgSlug } = use(params);
   const { data: org } = useOrganization(orgSlug);
   const updateOrg = useUpdateOrganization(orgSlug);
   const [name, setName] = useState('');
