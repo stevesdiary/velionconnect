@@ -23,7 +23,7 @@ RUN pnpm install --frozen-lockfile
 COPY --from=pruner /app/out/full/ .
 COPY prisma ./prisma
 
-RUN pnpm --filter @velion/api exec prisma generate --schema ../../prisma/schema.prisma
+RUN pnpm --filter @velion/api run prisma:generate
 RUN pnpm turbo run build --filter=@velion/api...
 RUN pnpm prune --prod --no-optional
 

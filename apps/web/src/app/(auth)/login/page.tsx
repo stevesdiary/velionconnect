@@ -18,8 +18,15 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await apiClient.post('/auth/login', { email, password });
-      router.push('/onboarding');
+      const res = await apiClient.post<{ requiresTwoFactor?: boolean; tempToken?: string }>(
+        '/auth/login',
+        { email, password },
+      );
+      if (res.data.requiresTwoFactor && res.data.tempToken) {
+        router.push(`/2fa-verify?tempToken=${encodeURIComponent(res.data.tempToken)}`);
+      } else {
+        router.push('/onboarding');
+      }
     } catch {
       setError('Invalid email or password');
     } finally {

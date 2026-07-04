@@ -10,6 +10,7 @@ const navItems = [
   { label: 'Workspaces', href: 'workspaces' },
   { label: 'Channels', href: 'channels' },
   { label: 'Brand Voice', href: 'brand-voice' },
+  { label: 'Security', href: 'security' },
 ];
 
 export default function SettingsLayout({
