@@ -7,8 +7,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "lint": "eslint src --ext .ts"
+    "test": "jest"
   },
   "devDependencies": {
     "@velion/config-typescript": "workspace:*",
