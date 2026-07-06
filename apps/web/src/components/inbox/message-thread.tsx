@@ -2,10 +2,22 @@
 
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { format, isSameDay } from 'date-fns';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { useTranslate } from '@/lib/hooks/use-ai';
 import { useMessages } from '@/lib/hooks/use-messages';
 import type { Message } from '@/lib/hooks/use-messages';
+
+const TRANSLATE_LANGUAGES = [
+  'English',
+  'French',
+  'Spanish',
+  'Portuguese',
+  'Arabic',
+  'Yoruba',
+  'Igbo',
+  'Hausa',
+] as const;
 
 function DateDivider({ date }: { date: Date }) {
   return (
@@ -17,11 +29,23 @@ function DateDivider({ date }: { date: Date }) {
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({ message, orgSlug }: { message: Message; orgSlug: string }) {
   const isOutbound = message.direction === 'OUTBOUND';
+  const [translation, setTranslation] = useState<string | null>(null);
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const translate = useTranslate(orgSlug);
+
+  const handleTranslate = async (targetLanguage: string) => {
+    setShowLangMenu(false);
+    if (!message.content) return;
+    const result = await translate.mutateAsync({ text: message.content, targetLanguage });
+    setTranslation(result);
+  };
+
+  const canTranslate = !message.isDeleted && !!message.content;
 
   return (
-    <div className={`flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
+    <div className={`group flex ${isOutbound ? 'justify-end' : 'justify-start'}`}>
       <div
         className={`max-w-[70%] rounded-2xl px-4 py-2.5 ${
           isOutbound
@@ -56,7 +80,61 @@ function MessageBubble({ message }: { message: Message }) {
             ))}
           </>
         )}
+
+        {(translation || translate.isPending) && (
+          <div
+            className={`mt-2 border-t pt-2 text-sm leading-relaxed ${
+              isOutbound ? 'border-indigo-400/50 text-indigo-100' : 'border-gray-300 text-gray-600'
+            }`}
+          >
+            {translate.isPending ? (
+              <span className="inline-flex items-center gap-1.5 text-xs opacity-80">
+                <span className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                Translating…
+              </span>
+            ) : (
+              <>
+                <p className="whitespace-pre-wrap">{translation}</p>
+                <button
+                  onClick={() => setTranslation(null)}
+                  className="mt-1 text-[10px] underline opacity-70 hover:opacity-100"
+                >
+                  Hide translation
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
         <div className={`mt-1 flex items-center gap-1 ${isOutbound ? 'justify-end' : ''}`}>
+          {canTranslate && !translation && !translate.isPending && (
+            <div className="relative">
+              <button
+                onClick={() => setShowLangMenu((o) => !o)}
+                className={`text-[10px] opacity-0 transition-opacity group-hover:opacity-100 ${
+                  isOutbound
+                    ? 'text-indigo-200 hover:text-white'
+                    : 'text-gray-400 hover:text-gray-700'
+                }`}
+                title="Translate"
+              >
+                Translate
+              </button>
+              {showLangMenu && (
+                <div className="absolute bottom-5 left-0 z-50 w-32 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+                  {TRANSLATE_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      onClick={() => void handleTranslate(lang)}
+                      className="block w-full px-3 py-1 text-left text-xs text-gray-700 hover:bg-gray-50"
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           <span className={`text-[10px] ${isOutbound ? 'text-indigo-200' : 'text-gray-400'}`}>
             {format(new Date(message.sentAt), 'HH:mm')}
           </span>
@@ -149,7 +227,7 @@ export function MessageThread({
               }}
             >
               {showDate && <DateDivider date={new Date(message.sentAt)} />}
-              <MessageBubble message={message} />
+              <MessageBubble message={message} orgSlug={orgSlug} />
             </div>
           );
         })}
