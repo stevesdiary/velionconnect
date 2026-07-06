@@ -211,8 +211,74 @@ export class InstagramConnector implements SocialConnector {
       this.logger.warn('Instagram webhook signature mismatch');
       return [];
     }
-    // TODO: parse Instagram webhook events
-    return [];
+
+    const events: WebhookEvent[] = [];
+
+    // Instagram Messaging API webhook format: object=instagram, entries with messaging array
+    const entries = payload['entry'] as
+      | Array<{
+          id: string;
+          time?: number;
+          messaging?: Array<{
+            sender: { id: string };
+            recipient: { id: string };
+            timestamp: number;
+            message?: {
+              mid: string;
+              text?: string;
+              attachments?: Array<{ type: string; payload: { url?: string } }>;
+            };
+          }>;
+          changes?: Array<{
+            field: string;
+            value: Record<string, unknown>;
+          }>;
+        }>
+      | undefined;
+
+    if (!entries) return events;
+
+    for (const entry of entries) {
+      // DMs via Messenger Platform (messaging array)
+      for (const msg of entry.messaging ?? []) {
+        if (!msg.message) continue;
+
+        const mediaUrls: string[] = (msg.message.attachments ?? [])
+          .filter((a) => a.payload?.url)
+          .map((a) => a.payload.url as string);
+
+        events.push({
+          type: 'message',
+          platformMessageId: msg.message.mid,
+          platformSenderId: msg.sender.id,
+          senderName: msg.sender.id,
+          senderAvatarUrl: null,
+          text: msg.message.text ?? null,
+          mediaUrls,
+          timestamp: new Date(msg.timestamp),
+          raw: msg as unknown as Record<string, unknown>,
+        });
+      }
+
+      // Story mentions and other changes
+      for (const change of entry.changes ?? []) {
+        if (change.field === 'mentions') {
+          events.push({
+            type: 'mention',
+            platformMessageId: null,
+            platformSenderId: entry.id,
+            senderName: null,
+            senderAvatarUrl: null,
+            text: null,
+            mediaUrls: [],
+            timestamp: new Date(),
+            raw: change.value,
+          });
+        }
+      }
+    }
+
+    return events;
   }
 
   verifyWebhookChallenge(

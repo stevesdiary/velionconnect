@@ -171,7 +171,65 @@ export class FacebookConnector implements SocialConnector {
       this.logger.warn('Facebook webhook signature mismatch');
       return [];
     }
-    return [];
+
+    const events: WebhookEvent[] = [];
+
+    // Messenger Platform webhook: object=page, entries with messaging array
+    const entries = payload['entry'] as
+      | Array<{
+          id: string;
+          time?: number;
+          messaging?: Array<{
+            sender: { id: string };
+            recipient: { id: string };
+            timestamp: number;
+            message?: {
+              mid: string;
+              text?: string;
+              attachments?: Array<{ type: string; payload: { url?: string } }>;
+            };
+            postback?: { title: string; payload: string };
+          }>;
+        }>
+      | undefined;
+
+    if (!entries) return events;
+
+    for (const entry of entries) {
+      for (const event of entry.messaging ?? []) {
+        if (event.message) {
+          const mediaUrls: string[] = (event.message.attachments ?? [])
+            .filter((a) => a.payload?.url)
+            .map((a) => a.payload.url as string);
+
+          events.push({
+            type: 'message',
+            platformMessageId: event.message.mid,
+            platformSenderId: event.sender.id,
+            senderName: event.sender.id,
+            senderAvatarUrl: null,
+            text: event.message.text ?? null,
+            mediaUrls,
+            timestamp: new Date(event.timestamp),
+            raw: event as unknown as Record<string, unknown>,
+          });
+        } else if (event.postback) {
+          events.push({
+            type: 'message',
+            platformMessageId: `postback_${event.timestamp}_${event.sender.id}`,
+            platformSenderId: event.sender.id,
+            senderName: event.sender.id,
+            senderAvatarUrl: null,
+            text: event.postback.title,
+            mediaUrls: [],
+            timestamp: new Date(event.timestamp),
+            raw: event as unknown as Record<string, unknown>,
+          });
+        }
+      }
+    }
+
+    return events;
   }
 
   verifyWebhookChallenge(
