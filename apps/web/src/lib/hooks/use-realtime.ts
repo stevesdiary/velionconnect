@@ -12,8 +12,12 @@ export function useRealtime(workspaceId?: string) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const baseUrl = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001';
-    const socket = io(`${baseUrl}/realtime`, {
+    // NEXT_PUBLIC_API_URL points at the REST API and includes the /api/v1 path
+    // prefix (see api-client.ts). The Socket.IO namespace lives at the server
+    // origin, so strip the API path prefix before connecting.
+    const configured = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001/api/v1';
+    const origin = configured.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+    const socket = io(`${origin}/realtime`, {
       path: '/socket.io',
       withCredentials: true,
       transports: ['websocket'],
