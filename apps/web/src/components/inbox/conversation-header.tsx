@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { Conversation } from '@/lib/hooks/use-conversations';
-import { useUpdateConversation } from '@/lib/hooks/use-conversations';
+import { useAddLabel, useRemoveLabel, useUpdateConversation } from '@/lib/hooks/use-conversations';
+import { useLabels } from '@/lib/hooks/use-labels';
+import { useOnClickOutside } from '@/lib/hooks/use-click-outside';
 import { useSummarize } from '@/lib/hooks/use-ai';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -12,6 +14,89 @@ const STATUS_COLORS: Record<string, string> = {
   RESOLVED: 'bg-gray-100 text-gray-600',
   ARCHIVED: 'bg-gray-100 text-gray-500',
 };
+
+function LabelPicker({
+  orgSlug,
+  workspaceSlug,
+  conversation,
+}: {
+  orgSlug: string;
+  workspaceSlug: string;
+  conversation: Conversation;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const { data: orgLabels = [] } = useLabels(orgSlug);
+  const addLabel = useAddLabel(orgSlug, workspaceSlug);
+  const removeLabel = useRemoveLabel(orgSlug, workspaceSlug);
+
+  useOnClickOutside(ref, () => setOpen(false));
+
+  const appliedIds = new Set(conversation.labels.map((l) => l.id));
+
+  const toggle = (labelId: string) => {
+    if (appliedIds.has(labelId)) {
+      removeLabel.mutate({ conversationId: conversation.id, labelId });
+    } else {
+      addLabel.mutate({ conversationId: conversation.id, labelId });
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-1">
+        {conversation.labels.map((label) => (
+          <span
+            key={label.id}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium text-white"
+            style={{ backgroundColor: label.color }}
+          >
+            {label.name}
+            <button
+              onClick={() =>
+                removeLabel.mutate({ conversationId: conversation.id, labelId: label.id })
+              }
+              className="ml-0.5 rounded-full opacity-70 hover:opacity-100"
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="rounded-md border border-dashed border-gray-300 px-2 py-0.5 text-xs text-gray-400 hover:border-gray-400 hover:text-gray-600"
+        >
+          + Label
+        </button>
+      </div>
+
+      {open && orgLabels.length > 0 && (
+        <div className="absolute left-0 top-7 z-50 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+          {orgLabels.map((label) => (
+            <button
+              key={label.id}
+              onClick={() => toggle(label.id)}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-gray-50"
+            >
+              <span
+                className="h-2.5 w-2.5 flex-shrink-0 rounded-full"
+                style={{ backgroundColor: label.color }}
+              />
+              <span className="flex-1 text-left text-gray-700">{label.name}</span>
+              {appliedIds.has(label.id) && <span className="text-xs text-indigo-600">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && orgLabels.length === 0 && (
+        <div className="absolute left-0 top-7 z-50 w-48 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg">
+          <p className="text-xs text-gray-400">No labels yet. Create some in Settings → Labels.</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function ConversationHeader({
   orgSlug,
@@ -58,6 +143,11 @@ export function ConversationHeader({
           <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
             {conversation.channel}
           </span>
+          <LabelPicker
+            orgSlug={orgSlug}
+            workspaceSlug={workspaceSlug}
+            conversation={conversation}
+          />
         </div>
 
         <div className="flex items-center gap-2">

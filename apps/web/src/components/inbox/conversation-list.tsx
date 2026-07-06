@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 
-import { useConversations } from '@/lib/hooks/use-conversations';
+import { useConversationsInfinite } from '@/lib/hooks/use-conversations';
 
 const STATUS_TABS = [
   { value: 'OPEN', label: 'Open' },
@@ -42,7 +42,10 @@ export function ConversationList({
   const params = useParams<{ conversationId?: string }>();
   const activeId = params?.conversationId;
 
-  const { data, isLoading } = useConversations(orgSlug, workspaceSlug, { status });
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useConversationsInfinite(orgSlug, workspaceSlug, { status });
+
+  const conversations = data?.pages.flatMap((page) => page.data) ?? [];
 
   return (
     <>
@@ -77,47 +80,73 @@ export function ConversationList({
               </div>
             ))}
           </div>
-        ) : !data?.data?.length ? (
+        ) : !conversations.length ? (
           <p className="px-4 py-12 text-center text-sm text-gray-400">
             No {status.toLowerCase()} conversations
           </p>
         ) : (
-          data.data.map((conv) => (
-            <Link
-              key={conv.id}
-              href={`/${orgSlug}/${workspaceSlug}/inbox/${conv.id}`}
-              className={`flex gap-3 border-b border-gray-50 px-3 py-3 transition-colors hover:bg-gray-50 ${
-                activeId === conv.id ? 'bg-indigo-50' : ''
-              }`}
-            >
-              <Avatar name={conv.contact.displayName} url={conv.contact.avatarUrl} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="truncate text-sm font-medium text-gray-900">
-                    {conv.contact.displayName}
-                  </span>
-                  <div className="ml-1 flex flex-shrink-0 items-center gap-1.5">
-                    {conv.unreadCount > 0 && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
-                        {conv.unreadCount}
-                      </span>
-                    )}
-                    <span className="text-[10px] text-gray-400">
-                      {CHANNEL_ICONS[conv.channel] ?? conv.channel}
+          <>
+            {conversations.map((conv) => (
+              <Link
+                key={conv.id}
+                href={`/${orgSlug}/${workspaceSlug}/inbox/${conv.id}`}
+                className={`flex gap-3 border-b border-gray-50 px-3 py-3 transition-colors hover:bg-gray-50 ${
+                  activeId === conv.id ? 'bg-indigo-50' : ''
+                }`}
+              >
+                <Avatar name={conv.contact.displayName} url={conv.contact.avatarUrl} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="truncate text-sm font-medium text-gray-900">
+                      {conv.contact.displayName}
                     </span>
+                    <div className="ml-1 flex flex-shrink-0 items-center gap-1.5">
+                      {conv.unreadCount > 0 && (
+                        <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white">
+                          {conv.unreadCount}
+                        </span>
+                      )}
+                      <span className="text-[10px] text-gray-400">
+                        {CHANNEL_ICONS[conv.channel] ?? conv.channel}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <p className="mt-0.5 truncate text-xs text-gray-500">
-                  {conv.lastMessagePreview ?? 'No messages yet'}
-                </p>
-                {conv.lastMessageAt && (
-                  <p className="mt-0.5 text-[10px] text-gray-400">
-                    {formatDistanceToNow(new Date(conv.lastMessageAt), { addSuffix: true })}
+                  <p className="mt-0.5 truncate text-xs text-gray-500">
+                    {conv.lastMessagePreview ?? 'No messages yet'}
                   </p>
-                )}
+                  {conv.labels.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {conv.labels.map((label) => (
+                        <span
+                          key={label.id}
+                          className="rounded-full px-1.5 py-0.5 text-[10px] font-medium text-white"
+                          style={{ backgroundColor: label.color }}
+                        >
+                          {label.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {conv.lastMessageAt && (
+                    <p className="mt-0.5 text-[10px] text-gray-400">
+                      {formatDistanceToNow(new Date(conv.lastMessageAt), { addSuffix: true })}
+                    </p>
+                  )}
+                </div>
+              </Link>
+            ))}
+            {hasNextPage && (
+              <div className="px-3 py-3">
+                <button
+                  onClick={() => void fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                  className="w-full rounded-md border border-gray-200 py-1.5 text-xs text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {isFetchingNextPage ? 'Loading…' : 'Load more'}
+                </button>
               </div>
-            </Link>
-          ))
+            )}
+          </>
         )}
       </div>
     </>

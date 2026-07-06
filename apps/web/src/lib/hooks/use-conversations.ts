@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
@@ -110,6 +110,84 @@ export function useUpdateConversation(orgSlug: string, workspaceSlug: string) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.conversations.all(workspaceSlug),
       });
+    },
+  });
+}
+
+export function useConversationsInfinite(
+  orgSlug: string,
+  workspaceSlug: string,
+  filters?: {
+    status?: string;
+    channel?: string;
+    isStarred?: boolean;
+    assignedToId?: string;
+  },
+) {
+  return useInfiniteQuery({
+    queryKey: [...queryKeys.conversations.all(workspaceSlug, filters), 'infinite'],
+    queryFn: async ({ pageParam }) => {
+      const params = new URLSearchParams();
+      if (filters?.status) params.set('status', filters.status);
+      if (filters?.channel) params.set('channel', filters.channel);
+      if (filters?.isStarred !== undefined) params.set('isStarred', String(filters.isStarred));
+      if (filters?.assignedToId) params.set('assignedToId', filters.assignedToId);
+      if (pageParam) params.set('cursor', pageParam);
+
+      const res = await apiClient.get<ConversationsPage>(
+        `/organizations/${orgSlug}/workspaces/${workspaceSlug}/conversations?${params}`,
+      );
+      return res.data;
+    },
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: !!orgSlug && !!workspaceSlug,
+  });
+}
+
+export function useAddLabel(orgSlug: string, workspaceSlug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      conversationId,
+      labelId,
+    }: {
+      conversationId: string;
+      labelId: string;
+    }) => {
+      const res = await apiClient.post<Conversation>(
+        `/organizations/${orgSlug}/workspaces/${workspaceSlug}/conversations/${conversationId}/labels/${labelId}`,
+      );
+      return res.data;
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.detail(variables.conversationId),
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.all(workspaceSlug) });
+    },
+  });
+}
+
+export function useRemoveLabel(orgSlug: string, workspaceSlug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      conversationId,
+      labelId,
+    }: {
+      conversationId: string;
+      labelId: string;
+    }) => {
+      await apiClient.delete(
+        `/organizations/${orgSlug}/workspaces/${workspaceSlug}/conversations/${conversationId}/labels/${labelId}`,
+      );
+    },
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.conversations.detail(variables.conversationId),
+      });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.conversations.all(workspaceSlug) });
     },
   });
 }
