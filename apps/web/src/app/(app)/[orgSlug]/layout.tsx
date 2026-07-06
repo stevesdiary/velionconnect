@@ -1,5 +1,7 @@
 'use client';
 
+import { use } from 'react';
+
 import { usePathname } from 'next/navigation';
 
 import { useOrganization } from '@/lib/hooks/use-organizations';
@@ -10,9 +12,9 @@ export default function OrgLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { orgSlug: string };
+  params: Promise<{ orgSlug: string }>;
 }) {
-  const { orgSlug } = params;
+  const { orgSlug } = use(params);
   const { data: org } = useOrganization(orgSlug);
   const pathname = usePathname();
 

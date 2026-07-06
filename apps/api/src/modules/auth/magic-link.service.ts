@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
@@ -19,23 +19,27 @@ export class MagicLinkService {
     this.transporter = nodemailer.createTransport({
       host: configService.get<string>('SMTP_HOST') ?? 'localhost',
       port: parseInt(configService.get<string>('SMTP_PORT') ?? '1025', 10),
-      auth:
-        configService.get<string>('SMTP_USER')
-          ? {
-              user: configService.get<string>('SMTP_USER'),
-              pass: configService.get<string>('SMTP_PASS'),
-            }
-          : undefined,
+      auth: configService.get<string>('SMTP_USER')
+        ? {
+            user: configService.get<string>('SMTP_USER'),
+            pass: configService.get<string>('SMTP_PASS'),
+          }
+        : undefined,
     });
   }
 
   async sendMagicLink(email: string) {
-    let user = await this.prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+    let user = await this.prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
 
     if (!user) {
       // Auto-create user on magic link request — they'll complete profile later
       user = await this.prisma.user.create({
-        data: { email: email.toLowerCase(), fullName: email.split('@')[0] ?? email },
+        data: {
+          email: email.toLowerCase(),
+          fullName: email.split('@')[0] ?? email,
+        },
       });
     }
 
@@ -46,11 +50,14 @@ export class MagicLinkService {
       data: { token, userId: user.id, expiresAt },
     });
 
-    const webUrl = this.configService.get<string>('app.webUrl') ?? 'http://localhost:3000';
+    const webUrl =
+      this.configService.get<string>('app.webUrl') ?? 'http://localhost:3000';
     const magicUrl = `${webUrl}/magic-link/verify?token=${token}`;
 
     await this.transporter.sendMail({
-      from: process.env['EMAIL_FROM'] ?? 'VelionConnect <noreply@velionconnect.com>',
+      from:
+        process.env['EMAIL_FROM'] ??
+        'VelionConnect <noreply@velionconnect.com>',
       to: email,
       subject: 'Your VelionConnect login link',
       html: `
@@ -71,7 +78,10 @@ export class MagicLinkService {
       throw new UnauthorizedException('Invalid or expired magic link');
     }
 
-    await this.prisma.magicLink.update({ where: { id: link.id }, data: { usedAt: new Date() } });
+    await this.prisma.magicLink.update({
+      where: { id: link.id },
+      data: { usedAt: new Date() },
+    });
 
     const { user } = link;
     if (!user.emailVerified) {
@@ -81,7 +91,11 @@ export class MagicLinkService {
       });
     }
 
-    const payload: JwtPayload = { sub: user.id, email: user.email, fullName: user.fullName };
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      fullName: user.fullName,
+    };
     return { accessToken: this.jwtService.sign(payload) };
   }
 }

@@ -12,13 +12,18 @@ import {
 import { ApiTags } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 
-import { CurrentUser, JwtPayload } from '../../common/decorators/current-user.decorator';
+import {
+  CurrentUser,
+  JwtPayload,
+} from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RequestMagicLinkDto, VerifyMagicLinkDto } from './dto/magic-link.dto';
 import { RegisterDto } from './dto/register.dto';
+import { TotpCodeDto } from './dto/totp-code.dto';
+import { VerifyTotpDto } from './dto/verify-totp.dto';
 import { MagicLinkService } from './magic-link.service';
 
 @ApiTags('auth')
@@ -30,7 +35,10 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) res: Response) {
+  async register(
+    @Body() dto: RegisterDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.register(dto);
     this.setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
     return { message: 'Registered successfully' };
@@ -38,10 +46,60 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
-    const tokens = await this.authService.login(dto);
-    this.setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.login(dto);
+    if (result.requiresTwoFactor) {
+      return { requiresTwoFactor: true, tempToken: result.tempToken };
+    }
+    this.setTokenCookies(res, result.accessToken, result.refreshToken);
     return { message: 'Logged in successfully' };
+  }
+
+  @Post('2fa/verify')
+  @HttpCode(HttpStatus.OK)
+  async verifyTotp(
+    @Body() dto: VerifyTotpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const tokens = await this.authService.verifyTotp(
+      dto.tempToken,
+      dto.code,
+      req.headers['user-agent'],
+      req.ip,
+    );
+    this.setTokenCookies(res, tokens.accessToken, tokens.refreshToken);
+    return { message: 'Two-factor authentication verified' };
+  }
+
+  @Get('2fa/status')
+  @UseGuards(JwtAuthGuard)
+  async getTotpStatus(@CurrentUser() user: JwtPayload) {
+    return this.authService.getTotpStatus(user.sub);
+  }
+
+  @Post('2fa/setup')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async setupTotp(@CurrentUser() user: JwtPayload) {
+    return this.authService.setupTotp(user.sub);
+  }
+
+  @Post('2fa/enable')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async enableTotp(@CurrentUser() user: JwtPayload, @Body() dto: TotpCodeDto) {
+    return this.authService.enableTotp(user.sub, dto.code);
+  }
+
+  @Post('2fa/disable')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async disableTotp(@CurrentUser() user: JwtPayload, @Body() dto: TotpCodeDto) {
+    return this.authService.disableTotp(user.sub, dto.code);
   }
 
   @Post('magic-link/request')
@@ -57,14 +115,19 @@ export class AuthController {
     @Body() dto: VerifyMagicLinkDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { accessToken } = await this.magicLinkService.verifyMagicLink(dto.token);
+    const { accessToken } = await this.magicLinkService.verifyMagicLink(
+      dto.token,
+    );
     res.cookie('access_token', accessToken, this.cookieOptions(15 * 60));
     return { message: 'Verified successfully' };
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = req.cookies?.['refresh_token'] as string | undefined;
     if (!refreshToken) {
       res.status(401).json({ message: 'No refresh token' });
@@ -104,8 +167,16 @@ export class AuthController {
     };
   }
 
-  private setTokenCookies(res: Response, accessToken: string, refreshToken: string) {
+  private setTokenCookies(
+    res: Response,
+    accessToken: string,
+    refreshToken: string,
+  ) {
     res.cookie('access_token', accessToken, this.cookieOptions(15 * 60));
-    res.cookie('refresh_token', refreshToken, this.cookieOptions(30 * 24 * 60 * 60));
+    res.cookie(
+      'refresh_token',
+      refreshToken,
+      this.cookieOptions(30 * 24 * 60 * 60),
+    );
   }
 }

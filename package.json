@@ -34,7 +34,10 @@
     "onlyBuiltDependencies": [
       "sharp",
       "msgpackr-extract",
-      "unrs-resolver"
+      "unrs-resolver",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
     ]
   }
 }

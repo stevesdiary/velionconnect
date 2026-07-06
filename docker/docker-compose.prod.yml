@@ -1,0 +1,65 @@
+version: '3.9'
+
+# Production stack for the Contabo VPS, deployed via Dokploy.
+#
+# Postgres and Redis are NOT exposed to the host network — only the `api`
+# service is reachable, and only through Dokploy's Traefik proxy (domain +
+# TLS are configured in the Dokploy dashboard once a domain is attached to
+# this project; no Traefik labels are hardcoded here).
+#
+# Copy `.env.production.example` to `.env` next to this file (or configure
+# the equivalent vars in the Dokploy UI) before deploying.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: velion-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-velion}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-velionconnect}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-velion} -d ${POSTGRES_DB:-velionconnect}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: velion-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ..
+      dockerfile: apps/api/Dockerfile
+    container_name: velion-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-velion}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-velionconnect}
+      REDIS_URL: redis://default:${REDIS_PASSWORD}@redis:6379
+      PORT: 3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    expose:
+      - '3001'
+
+volumes:
+  postgres_data:
+  redis_data:

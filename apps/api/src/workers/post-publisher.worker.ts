@@ -54,7 +54,10 @@ export class PostPublisherWorker extends WorkerHost {
       const connector = this.connectorFactory.getConnector(account.platform);
 
       const result = await connector.publishPost(
-        account,
+        {
+          ...account,
+          metadata: (account.metadata ?? {}) as Record<string, unknown>,
+        },
         post.caption ?? '',
         post.media.map((m) => m.url),
         post.metadata as Record<string, unknown>,

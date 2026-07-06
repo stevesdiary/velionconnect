@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerModule } from '@nestjs/throttler';
 
+import { AppController } from './app.controller';
 import { aiConfig } from './config/ai.config';
 import { appConfig } from './config/app.config';
 import { databaseConfig } from './config/database.config';
@@ -12,7 +13,6 @@ import { linkedinConfig } from './config/linkedin.config';
 import { metaConfig } from './config/meta.config';
 import { redisConfig } from './config/redis.config';
 import { storageConfig } from './config/storage.config';
-import { GatewaysModule } from './gateways/gateways.module';
 import { AiModule } from './modules/ai/ai.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { StorageModule } from './modules/storage/storage.module';
@@ -22,7 +22,6 @@ import { ConnectorsModule } from './modules/connectors/connectors.module';
 import { ContactsModule } from './modules/contacts/contacts.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { InvitesModule } from './modules/invites/invites.module';
-import { LabelsModule } from './modules/labels/labels.module';
 import { MediaModule } from './modules/media/media.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
@@ -88,5 +87,6 @@ import { WorkersModule } from './workers/workers.module';
     SearchModule,
     AuditModule,
   ],
+  controllers: [AppController],
 })
 export class AppModule {}

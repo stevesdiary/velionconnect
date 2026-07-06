@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
-export default function SettingsPage({ params }: { params: { orgSlug: string } }) {
-  redirect(`/${params.orgSlug}/settings/profile`);
+export default async function SettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+  const { orgSlug } = await params;
+  redirect(`/${orgSlug}/settings/profile`);
 }

@@ -16,7 +16,7 @@ export class ConnectorFactory {
     private readonly facebook: FacebookConnector,
     private readonly linkedIn: LinkedInConnector,
   ) {
-    this.connectors = new Map([
+    this.connectors = new Map<Platform, SocialConnector>([
       [Platform.WHATSAPP, whatsApp],
       [Platform.INSTAGRAM, instagram],
       [Platform.FACEBOOK, facebook],

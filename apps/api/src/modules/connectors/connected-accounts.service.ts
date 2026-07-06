@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AccountStatus, Platform } from '@velion/types';
 
 import { AuditService } from '../audit/audit.service';
@@ -165,7 +166,7 @@ export class ConnectedAccountsService {
           : null,
         tokenExpiresAt: accountData.tokenExpiresAt ?? null,
         scopes: accountData.scopes,
-        metadata: accountData.metadata,
+        metadata: accountData.metadata as Prisma.InputJsonValue,
       },
       update: {
         displayName: accountData.displayName,

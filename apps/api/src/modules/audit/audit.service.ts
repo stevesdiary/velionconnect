@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -19,6 +20,22 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(input: AuditLogInput): Promise<void> {
-    await this.prisma.auditLog.create({ data: input });
+    await this.prisma.auditLog.create({
+      data: {
+        ...input,
+        before:
+          input.before === undefined
+            ? undefined
+            : input.before === null
+              ? Prisma.DbNull
+              : (input.before as Prisma.InputJsonValue),
+        after:
+          input.after === undefined
+            ? undefined
+            : input.after === null
+              ? Prisma.DbNull
+              : (input.after as Prisma.InputJsonValue),
+      },
+    });
   }
 }

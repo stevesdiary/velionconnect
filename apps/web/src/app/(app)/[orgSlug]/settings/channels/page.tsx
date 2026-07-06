@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { use, useState } from 'react';
 
 import {
   ConnectedAccount,
@@ -183,8 +183,8 @@ function ConnectWhatsAppForm({ orgSlug }: { orgSlug: string }) {
   );
 }
 
-export default function ChannelsPage({ params }: { params: { orgSlug: string } }) {
-  const { orgSlug } = params;
+export default function ChannelsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
+  const { orgSlug } = use(params);
   const { data: accounts, isLoading } = useConnectedAccounts(orgSlug);
   const { mutate: disconnect } = useDisconnectAccount(orgSlug);
 

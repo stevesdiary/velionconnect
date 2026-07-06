@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { startTransition, useEffect, useState } from 'react';
+import { startTransition, Suspense, useEffect, useState } from 'react';
 
 import { apiClient } from '@/lib/api-client';
 
-export default function MagicLinkVerifyPage() {
+function MagicLinkVerifyContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -43,5 +43,19 @@ export default function MagicLinkVerifyPage() {
     <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
       <div className="animate-pulse text-sm text-gray-500">Verifying your link…</div>
     </div>
+  );
+}
+
+export default function MagicLinkVerifyPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+          <div className="animate-pulse text-sm text-gray-500">Loading…</div>
+        </div>
+      }
+    >
+      <MagicLinkVerifyContent />
+    </Suspense>
   );
 }

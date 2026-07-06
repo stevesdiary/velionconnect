@@ -121,6 +121,8 @@ model User {
   locale        String    @default("en-NG")
   currency      String    @default("NGN")
   lastLoginAt   DateTime? @db.Timestamptz
+  totpSecret    String?
+  totpEnabled   Boolean   @default(false)
   createdAt     DateTime  @default(now()) @db.Timestamptz
   updatedAt     DateTime  @updatedAt @db.Timestamptz
   deletedAt     DateTime? @db.Timestamptz

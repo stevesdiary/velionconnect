@@ -13,15 +13,24 @@ export class CryptoService {
   constructor(private readonly configService: ConfigService) {
     const hexKey = this.configService.get<string>('app.encryptionKey') ?? '';
     if (hexKey.length !== 64) {
-      throw new Error('ENCRYPTION_KEY must be a 32-byte hex string (64 hex chars)');
+      throw new Error(
+        'ENCRYPTION_KEY must be a 32-byte hex string (64 hex chars)',
+      );
     }
     this.key = Buffer.from(hexKey, 'hex');
   }
 
   encrypt(plaintext: string): string {
     const iv = crypto.randomBytes(this.ivLength);
-    const cipher = crypto.createCipheriv(this.algorithm, this.key, iv) as crypto.CipherGCM;
-    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const cipher = crypto.createCipheriv(
+      this.algorithm,
+      this.key,
+      iv,
+    ) as crypto.CipherGCM;
+    const encrypted = Buffer.concat([
+      cipher.update(plaintext, 'utf8'),
+      cipher.final(),
+    ]);
     const tag = cipher.getAuthTag();
     return Buffer.concat([iv, tag, encrypted]).toString('base64');
   }

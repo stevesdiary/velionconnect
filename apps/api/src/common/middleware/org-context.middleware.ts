@@ -21,7 +21,7 @@ export class OrgContextMiddleware implements NestMiddleware {
     _res: Response,
     next: NextFunction,
   ) {
-    const orgSlug = req.params['orgSlug'];
+    const orgSlug = req.params['orgSlug'] as string | undefined;
     if (!orgSlug) return next();
 
     // Extract user from cookie or Authorization header

@@ -2,12 +2,12 @@
   "name": "@velion/utils",
   "version": "0.0.1",
   "private": true,
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
-    "lint": "eslint src --ext .ts"
+    "test": "jest"
   },
   "devDependencies": {
     "@velion/config-typescript": "workspace:*",
