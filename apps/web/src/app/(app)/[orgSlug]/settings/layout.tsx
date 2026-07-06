@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Members', href: 'members' },
   { label: 'Workspaces', href: 'workspaces' },
   { label: 'Channels', href: 'channels' },
+  { label: 'Labels', href: 'labels' },
   { label: 'Brand Voice', href: 'brand-voice' },
   { label: 'Security', href: 'security' },
 ];

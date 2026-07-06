@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
@@ -48,5 +48,20 @@ export function useContacts(orgSlug: string, workspaceId?: string) {
       return res.data;
     },
     enabled: !!orgSlug,
+  });
+}
+
+export function useMergeContacts(orgSlug: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ sourceId, targetId }: { sourceId: string; targetId: string }) => {
+      const res = await apiClient.post<Contact>(
+        `/organizations/${orgSlug}/contacts/${sourceId}/merge/${targetId}`,
+      );
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.contacts.all(orgSlug) });
+    },
   });
 }

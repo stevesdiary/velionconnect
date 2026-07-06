@@ -1,8 +1,81 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 
-import { useContacts } from '@/lib/hooks/use-contacts';
+import { useContacts, useMergeContacts, type Contact } from '@/lib/hooks/use-contacts';
+
+function MergeDialog({
+  contact,
+  contacts,
+  orgSlug,
+  onClose,
+}: {
+  contact: Contact;
+  contacts: Contact[];
+  orgSlug: string;
+  onClose: () => void;
+}) {
+  const [targetId, setTargetId] = useState('');
+  const merge = useMergeContacts(orgSlug);
+
+  const candidates = contacts.filter((c) => c.id !== contact.id);
+
+  const handleMerge = async () => {
+    if (!targetId) return;
+    await merge.mutateAsync({ sourceId: contact.id, targetId });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+        <h2 className="mb-1 text-lg font-semibold text-gray-900">Merge contact</h2>
+        <p className="mb-4 text-sm text-gray-500">
+          Merge <span className="font-medium">{contact.displayName}</span> into another contact. All
+          conversations and identities will be transferred.
+        </p>
+
+        <label className="mb-1 block text-xs font-medium text-gray-700">Merge into</label>
+        <select
+          value={targetId}
+          onChange={(e) => setTargetId(e.target.value)}
+          className="mb-4 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+        >
+          <option value="">Select a contact…</option>
+          {candidates.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.displayName}
+              {c.email ? ` — ${c.email}` : ''}
+              {c.phone ? ` — ${c.phone}` : ''}
+            </option>
+          ))}
+        </select>
+
+        {merge.isError && (
+          <p className="mb-3 text-sm text-red-600">
+            {merge.error instanceof Error ? merge.error.message : 'Merge failed'}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleMerge()}
+            disabled={!targetId || merge.isPending}
+            className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {merge.isPending ? 'Merging…' : 'Merge'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function ContactsPage({
   params,
@@ -12,6 +85,7 @@ export default function ContactsPage({
   const { orgSlug } = use(params);
   const { data, isLoading } = useContacts(orgSlug);
   const contacts = data?.data ?? [];
+  const [mergingContact, setMergingContact] = useState<Contact | null>(null);
 
   return (
     <div className="p-6">
@@ -43,7 +117,7 @@ export default function ContactsPage({
           {contacts.map((contact, i) => (
             <div
               key={contact.id}
-              className={`flex items-center gap-3 px-4 py-3 ${i < contacts.length - 1 ? 'border-b border-gray-100' : ''} hover:bg-gray-50`}
+              className={`group flex items-center gap-3 px-4 py-3 ${i < contacts.length - 1 ? 'border-b border-gray-100' : ''} hover:bg-gray-50`}
             >
               {contact.avatarUrl ? (
                 <img
@@ -74,9 +148,25 @@ export default function ContactsPage({
                   ))}
                 </div>
               )}
+              <button
+                onClick={() => setMergingContact(contact)}
+                className="ml-2 hidden rounded-md px-2 py-1 text-xs text-gray-400 hover:bg-gray-100 hover:text-gray-700 group-hover:block"
+                title="Merge contact"
+              >
+                Merge
+              </button>
             </div>
           ))}
         </div>
+      )}
+
+      {mergingContact && (
+        <MergeDialog
+          contact={mergingContact}
+          contacts={contacts}
+          orgSlug={orgSlug}
+          onClose={() => setMergingContact(null)}
+        />
       )}
     </div>
   );
