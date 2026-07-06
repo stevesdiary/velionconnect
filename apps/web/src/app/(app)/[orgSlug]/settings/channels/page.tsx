@@ -9,6 +9,79 @@ import {
   useDisconnectAccount,
 } from '@/lib/hooks/use-connected-accounts';
 
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID ?? '';
+const LINKEDIN_CLIENT_ID = process.env.NEXT_PUBLIC_LINKEDIN_CLIENT_ID ?? '';
+
+function buildOAuthState(orgSlug: string, platform: string): string {
+  const random = Math.random().toString(36).slice(2);
+  return btoa(`${orgSlug}::${platform}::${random}`);
+}
+
+function getOAuthUrl(
+  platform: 'instagram' | 'facebook' | 'linkedin',
+  orgSlug: string,
+  redirectUri: string,
+): string {
+  const state = buildOAuthState(orgSlug, platform);
+  if (platform === 'instagram') {
+    const scope = [
+      'instagram_basic',
+      'instagram_manage_messages',
+      'pages_show_list',
+      'pages_messaging',
+    ].join(',');
+    return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+  }
+  if (platform === 'facebook') {
+    const scope = ['pages_messaging', 'pages_show_list', 'pages_manage_metadata'].join(',');
+    return `https://www.facebook.com/v19.0/dialog/oauth?client_id=${META_APP_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&response_type=code&state=${state}`;
+  }
+  // linkedin
+  const scope = ['r_liteprofile', 'r_emailaddress', 'w_member_social'].join('%20');
+  return `https://www.linkedin.com/oauth/v2/authorization?response_type=code&client_id=${LINKEDIN_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scope}&state=${state}`;
+}
+
+function ConnectOAuthButton({
+  platform,
+  label,
+  color,
+  orgSlug,
+}: {
+  platform: 'instagram' | 'facebook' | 'linkedin';
+  label: string;
+  color: string;
+  orgSlug: string;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  function handleConnect() {
+    if (!META_APP_ID && platform !== 'linkedin') return;
+    if (!LINKEDIN_CLIENT_ID && platform === 'linkedin') return;
+    setLoading(true);
+    const redirectUri = `${window.location.origin}/oauth/callback`;
+    window.location.href = getOAuthUrl(platform, orgSlug, redirectUri);
+  }
+
+  const disabled =
+    (platform !== 'linkedin' && !META_APP_ID) || (platform === 'linkedin' && !LINKEDIN_CLIENT_ID);
+
+  return (
+    <button
+      onClick={handleConnect}
+      disabled={disabled || loading}
+      title={disabled ? 'OAuth credentials not configured' : undefined}
+      className="flex w-full items-center gap-3 rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <span
+        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${color}`}
+      >
+        {label[0]}
+      </span>
+      {loading ? `Redirecting to ${label}…` : `Connect ${label}`}
+    </button>
+  );
+}
+
 const PLATFORM_LABELS: Record<string, string> = {
   WHATSAPP: 'WhatsApp',
   INSTAGRAM: 'Instagram',
@@ -188,9 +261,6 @@ export default function ChannelsPage({ params }: { params: Promise<{ orgSlug: st
   const { data: accounts, isLoading } = useConnectedAccounts(orgSlug);
   const { mutate: disconnect } = useDisconnectAccount(orgSlug);
 
-  const whatsappAccounts = accounts?.filter((a) => a.platform === 'WHATSAPP') ?? [];
-  const otherAccounts = accounts?.filter((a) => a.platform !== 'WHATSAPP') ?? [];
-
   return (
     <div className="space-y-8">
       <div>
@@ -208,40 +278,64 @@ export default function ChannelsPage({ params }: { params: Promise<{ orgSlug: st
           <div>
             <h3 className="mb-3 text-sm font-medium text-gray-700">WhatsApp</h3>
             <div className="space-y-2">
-              {whatsappAccounts.map((account) => (
-                <AccountCard key={account.id} account={account} onDisconnect={disconnect} />
-              ))}
+              {accounts
+                ?.filter((a) => a.platform === 'WHATSAPP')
+                .map((account) => (
+                  <AccountCard key={account.id} account={account} onDisconnect={disconnect} />
+                ))}
               <ConnectWhatsAppForm orgSlug={orgSlug} />
             </div>
           </div>
 
-          {/* Other platforms */}
-          {otherAccounts.length > 0 && (
-            <div>
-              <h3 className="mb-3 text-sm font-medium text-gray-700">Other Channels</h3>
-              <div className="space-y-2">
-                {otherAccounts.map((account) => (
+          {/* OAuth platforms */}
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-700">Instagram</h3>
+            <div className="space-y-2">
+              {accounts
+                ?.filter((a) => a.platform === 'INSTAGRAM')
+                .map((account) => (
                   <AccountCard key={account.id} account={account} onDisconnect={disconnect} />
                 ))}
-              </div>
+              <ConnectOAuthButton
+                platform="instagram"
+                label="Instagram"
+                color="bg-pink-100 text-pink-700"
+                orgSlug={orgSlug}
+              />
             </div>
-          )}
+          </div>
 
-          {/* Coming soon: OAuth platforms */}
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-500">Coming Soon</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-700">Facebook</h3>
             <div className="space-y-2">
-              {['Instagram', 'Facebook', 'LinkedIn'].map((name) => (
-                <div
-                  key={name}
-                  className="flex items-center gap-3 rounded-lg border border-dashed border-gray-200 p-4 opacity-50"
-                >
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500">
-                    {name[0]}
-                  </div>
-                  <span className="text-sm text-gray-400">{name} — OAuth coming soon</span>
-                </div>
-              ))}
+              {accounts
+                ?.filter((a) => a.platform === 'FACEBOOK')
+                .map((account) => (
+                  <AccountCard key={account.id} account={account} onDisconnect={disconnect} />
+                ))}
+              <ConnectOAuthButton
+                platform="facebook"
+                label="Facebook"
+                color="bg-blue-100 text-blue-700"
+                orgSlug={orgSlug}
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-3 text-sm font-medium text-gray-700">LinkedIn</h3>
+            <div className="space-y-2">
+              {accounts
+                ?.filter((a) => a.platform === 'LINKEDIN')
+                .map((account) => (
+                  <AccountCard key={account.id} account={account} onDisconnect={disconnect} />
+                ))}
+              <ConnectOAuthButton
+                platform="linkedin"
+                label="LinkedIn"
+                color="bg-sky-100 text-sky-700"
+                orgSlug={orgSlug}
+              />
             </div>
           </div>
         </div>
