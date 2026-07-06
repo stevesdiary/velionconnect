@@ -9,6 +9,7 @@ import { useUploadMedia } from '@/lib/hooks/use-media';
 import { useCreatePost, useUpdatePost, type Post } from '@/lib/hooks/use-posts';
 import { useGenerateHashtags, useOptimizeForPlatform } from '@/lib/hooks/use-ai';
 import { PLATFORM_LIMITS, validatePost } from '@/lib/platform-limits';
+import { MediaLibraryPicker } from './media-library';
 
 interface PostComposerProps {
   orgSlug: string;
@@ -42,6 +43,7 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
   );
   const [dragOver, setDragOver] = useState(false);
   const [suggestedHashtags, setSuggestedHashtags] = useState<string[]>([]);
+  const [showLibrary, setShowLibrary] = useState(false);
 
   const selectedAccount = accounts.find((a) => a.id === accountId);
   const platform = selectedAccount?.platform ?? '';
@@ -72,6 +74,10 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
 
   const applyHashtag = (tag: string) => {
     setCaption((prev) => `${prev}${prev.endsWith(' ') || prev === '' ? '' : ' '}${tag}`);
+  };
+
+  const toggleLibraryMedia = (url: string) => {
+    setMediaUrls((prev) => (prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]));
   };
 
   const handleOptimize = async () => {
@@ -205,15 +211,24 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
       </div>
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-gray-700">
-          Media
-          {limits && (
-            <span className="ml-1.5 font-normal text-gray-400">
-              ({mediaUrls.length}/{limits.maxMedia}
-              {limits.requiresMedia ? ', required' : ''})
-            </span>
-          )}
-        </label>
+        <div className="mb-1.5 flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">
+            Media
+            {limits && (
+              <span className="ml-1.5 font-normal text-gray-400">
+                ({mediaUrls.length}/{limits.maxMedia}
+                {limits.requiresMedia ? ', required' : ''})
+              </span>
+            )}
+          </label>
+          <button
+            type="button"
+            onClick={() => setShowLibrary(true)}
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-800"
+          >
+            Choose from library
+          </button>
+        </div>
 
         {mediaUrls.length > 0 && (
           <div className="mb-3 grid grid-cols-4 gap-2">
@@ -342,6 +357,15 @@ export function PostComposer({ orgSlug, workspaceSlug, editPost }: PostComposerP
           </button>
         )}
       </div>
+
+      {showLibrary && (
+        <MediaLibraryPicker
+          orgSlug={orgSlug}
+          selectedUrls={mediaUrls}
+          onSelect={toggleLibraryMedia}
+          onClose={() => setShowLibrary(false)}
+        />
+      )}
     </div>
   );
 }
