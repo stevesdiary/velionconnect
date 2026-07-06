@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { startTransition, Suspense, useEffect, useRef, useState } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
@@ -21,12 +21,12 @@ function OAuthCallbackContent() {
     const errorParam = searchParams.get('error');
 
     if (errorParam) {
-      setError(`Authorization denied: ${errorParam}`);
+      startTransition(() => setError(`Authorization denied: ${errorParam}`));
       return;
     }
 
     if (!code || !rawState) {
-      setError('Missing OAuth parameters.');
+      startTransition(() => setError('Missing OAuth parameters.'));
       return;
     }
 
@@ -40,7 +40,7 @@ function OAuthCallbackContent() {
       platform = parts[1];
       if (!orgSlug || !platform) throw new Error('bad state');
     } catch {
-      setError('Invalid OAuth state parameter.');
+      startTransition(() => setError('Invalid OAuth state parameter.'));
       return;
     }
 
@@ -56,7 +56,7 @@ function OAuthCallbackContent() {
       })
       .catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : 'Failed to complete connection.';
-        setError(msg);
+        startTransition(() => setError(msg));
       });
   }, [searchParams, router]);
 
