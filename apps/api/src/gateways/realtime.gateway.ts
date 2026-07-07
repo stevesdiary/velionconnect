@@ -1,4 +1,3 @@
-import { createAdapter } from '@socket.io/redis-adapter';
 import {
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -13,7 +12,6 @@ import { JwtService } from '@nestjs/jwt';
 const { parse } = require('cookie') as {
   parse: (str: string) => Record<string, string>;
 };
-import Redis from 'ioredis';
 import { Server, Socket } from 'socket.io';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -36,13 +34,11 @@ export class RealtimeGateway
     private readonly config: ConfigService,
   ) {}
 
-  afterInit(server: Server) {
-    const redisUrl =
-      this.config.get<string>('redis.url') ?? 'redis://localhost:6379';
-    const pubClient = new Redis(redisUrl);
-    const subClient = pubClient.duplicate();
-    server.adapter(createAdapter(pubClient, subClient));
-    this.logger.log('RealtimeGateway initialised with Redis adapter');
+  afterInit() {
+    // The Redis pub/sub adapter is attached to the root Socket.IO server by
+    // RedisIoAdapter (see main.ts) before namespaces are created — it cannot be
+    // set here because this gateway is namespaced and receives the Namespace.
+    this.logger.log('RealtimeGateway initialised');
   }
 
   async handleConnection(socket: Socket) {

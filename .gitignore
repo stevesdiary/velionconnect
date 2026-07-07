@@ -43,3 +43,4 @@ coverage
 
 # Docker volumes (local)
 docker/volumes
+dump.rdb
