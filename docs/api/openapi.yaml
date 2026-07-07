@@ -1,0 +1,1515 @@
+openapi: 3.1.0
+info:
+  title: VelionConnect API
+  version: '1.0.0'
+  description: |
+    REST API for **VelionConnect** — the AI-powered omnichannel customer
+    engagement platform.
+
+    ## Authentication
+    Most endpoints require an authenticated session. On `POST /auth/login` or
+    `POST /auth/register` the server sets two **HttpOnly** cookies:
+    - `access_token` — short-lived (15m) JWT, sent on every request
+    - `refresh_token` — long-lived (30d) rotating JWT, used by `POST /auth/refresh`
+
+    Browsers send these cookies automatically. For non-browser clients (Postman,
+    curl) either persist the cookie jar, or send the access token as a
+    `Bearer` token in the `Authorization` header.
+
+    ## Conventions
+    - All timestamps are ISO-8601 UTC.
+    - Money is an integer in the smallest currency unit (kobo/cents) + an ISO-4217 `currency`.
+    - Phone numbers are E.164 (`+2348012345678`).
+    - List endpoints are cursor-paginated: pass `?cursor=` and read `nextCursor`.
+  contact:
+    name: VelionConnect
+  license:
+    name: Proprietary
+
+servers:
+  - url: http://localhost:3001/api/v1
+    description: Local development
+  - url: https://api.your-domain.com/api/v1
+    description: Production
+
+security:
+  - cookieAuth: []
+
+tags:
+  - name: Auth
+    description: Registration, login, 2FA, magic links, session refresh
+  - name: Users
+    description: Current-user profile and memberships
+  - name: Organizations
+    description: Multi-tenant roots and their members
+  - name: Workspaces
+    description: Sub-units within an organization
+  - name: Invites
+    description: Token-based email invitations
+  - name: Connected Accounts
+    description: OAuth / API-key connections to social platforms
+  - name: Contacts
+    description: Customer-centric identities and identity resolution
+  - name: Conversations
+    description: Threads belonging to a contact + channel
+  - name: Messages
+    description: Inbound/outbound messages within a conversation
+  - name: Labels
+    description: Org-scoped conversation tags
+  - name: Publishing
+    description: Scheduled and published social posts
+  - name: Media
+    description: S3 pre-signed uploads and the media library
+  - name: AI
+    description: Reply suggestions, summarization, brand voice, translation, hashtags
+  - name: Notifications
+    description: In-app notifications
+  - name: Search
+    description: Full-text search across conversations, contacts, messages
+  - name: Analytics
+    description: Workspace analytics
+  - name: Webhooks
+    description: Inbound platform webhooks (Meta, LinkedIn)
+
+paths:
+  # ─────────────────────────── AUTH ───────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+            example:
+              email: jane@example.com
+              fullName: Jane Doe
+              password: sup3r-secret-pw
+      responses:
+        '201':
+          description: Registered; sets access_token and refresh_token cookies.
+          content:
+            application/json:
+              example: { message: Registered successfully }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in with email + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+            example: { email: jane@example.com, password: sup3r-secret-pw }
+      responses:
+        '200':
+          description: |
+            On success sets cookies and returns a message. If the account has 2FA
+            enabled, returns `requiresTwoFactor: true` and a short-lived `tempToken`
+            instead of setting cookies — complete via `POST /auth/2fa/verify`.
+          content:
+            application/json:
+              examples:
+                loggedIn:
+                  value: { message: Logged in successfully }
+                twoFactor:
+                  value: { requiresTwoFactor: true, tempToken: eyJhbGciOi... }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/verify:
+    post:
+      tags: [Auth]
+      summary: Complete login with a TOTP code
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/VerifyTotpRequest' }
+            example: { tempToken: eyJhbGciOi..., code: '123456' }
+      responses:
+        '200':
+          description: Verified; sets session cookies.
+          content:
+            application/json:
+              example: { message: Two-factor authentication verified }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/2fa/status:
+    get:
+      tags: [Auth]
+      summary: Whether 2FA is enabled for the current user
+      responses:
+        '200':
+          content:
+            application/json:
+              example: { enabled: false }
+
+  /auth/2fa/setup:
+    post:
+      tags: [Auth]
+      summary: Begin 2FA setup (generate secret + QR code)
+      responses:
+        '200':
+          description: Returns an otpauth QR code (data URL) and the plaintext secret.
+          content:
+            application/json:
+              example:
+                qrCodeDataUrl: 'data:image/png;base64,iVBORw0KGgo...'
+                secret: JBSWY3DPEHPK3PXP
+
+  /auth/2fa/enable:
+    post:
+      tags: [Auth]
+      summary: Confirm the first TOTP code and activate 2FA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TotpCodeRequest' }
+            example: { code: '123456' }
+      responses:
+        '200': { content: { application/json: { example: { success: true } } } }
+
+  /auth/2fa/disable:
+    post:
+      tags: [Auth]
+      summary: Verify a TOTP code and deactivate 2FA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TotpCodeRequest' }
+            example: { code: '123456' }
+      responses:
+        '200': { content: { application/json: { example: { success: true } } } }
+
+  /auth/magic-link/request:
+    post:
+      tags: [Auth]
+      summary: Email a magic sign-in link
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { email: { type: string, format: email } }, required: [email] }
+            example: { email: jane@example.com }
+      responses:
+        '200': { content: { application/json: { example: { message: Magic link sent if account exists } } } }
+
+  /auth/magic-link/verify:
+    post:
+      tags: [Auth]
+      summary: Exchange a magic-link token for a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { token: { type: string } }, required: [token] }
+            example: { token: 3f9a1c2e-... }
+      responses:
+        '200': { content: { application/json: { example: { message: Verified successfully } } } }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate the session using the refresh_token cookie
+      security: []
+      responses:
+        '200': { content: { application/json: { example: { message: Refreshed successfully } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Clear the session cookies
+      responses:
+        '200': { content: { application/json: { example: { message: Logged out } } } }
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Current authenticated user
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  # ─────────────────────────── USERS ──────────────────────────
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Current user profile
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+    patch:
+      tags: [Users]
+      summary: Update current user profile
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfileRequest' }
+            example: { fullName: Jane A. Doe, timezone: Africa/Lagos, locale: en-NG }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/User' } } } }
+
+  /users/me/organizations:
+    get:
+      tags: [Users]
+      summary: Organizations the current user belongs to
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Organization' } }
+
+  # ─────────────────────── ORGANIZATIONS ──────────────────────
+  /organizations:
+    post:
+      tags: [Organizations]
+      summary: Create an organization (auto-creates owner membership + default workspace)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrganizationRequest' }
+            example: { name: Acme Retail, timezone: Africa/Lagos, locale: en-NG, currency: NGN }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /organizations/{orgSlug}:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [Organizations]
+      summary: Get an organization by slug
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Organizations]
+      summary: Update an organization
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrganizationRequest' }
+            example: { name: Acme Retail Ltd }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Organization' } } } }
+
+  /organizations/{orgSlug}/members:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [Organizations]
+      summary: List organization members
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/OrganizationMember' } }
+
+  /organizations/{orgSlug}/members/{userId}/role:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/userId' }
+    patch:
+      tags: [Organizations]
+      summary: Change a member's role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { role: { $ref: '#/components/schemas/OrgRole' } }, required: [role] }
+            example: { role: ADMIN }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/OrganizationMember' } } } }
+
+  /organizations/{orgSlug}/members/{userId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/userId' }
+    delete:
+      tags: [Organizations]
+      summary: Remove a member from the organization
+      responses:
+        '200': { description: Removed }
+
+  # ──────────────────────── WORKSPACES ────────────────────────
+  /organizations/{orgSlug}/workspaces:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [Workspaces]
+      summary: List workspaces
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Workspace' } } } } }
+    post:
+      tags: [Workspaces]
+      summary: Create a workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWorkspaceRequest' }
+            example: { name: Support, description: Customer support team, timezone: Africa/Lagos }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+    get:
+      tags: [Workspaces]
+      summary: Get a workspace by slug
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+    patch:
+      tags: [Workspaces]
+      summary: Update a workspace
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateWorkspaceRequest' }
+            example: { description: Tier-1 support }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Workspace' } } } }
+    delete:
+      tags: [Workspaces]
+      summary: Delete a workspace
+      responses:
+        '200': { description: Deleted }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/members:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+    get:
+      tags: [Workspaces]
+      summary: List workspace members
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/OrganizationMember' } } } } }
+    post:
+      tags: [Workspaces]
+      summary: Add a member to the workspace
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddWorkspaceMemberRequest' }
+            example: { userId: usr_123, role: MEMBER }
+      responses:
+        '201': { description: Added }
+
+  # ────────────────────────── INVITES ─────────────────────────
+  /organizations/{orgSlug}/invites:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Invites]
+      summary: Create and email an invite
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateInviteRequest' }
+            example: { email: teammate@example.com, role: MEMBER }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } }
+    get:
+      tags: [Invites]
+      summary: List pending invites
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Invite' } } } } }
+
+  /invites/{token}:
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    get:
+      tags: [Invites]
+      summary: Look up an invite by token (public)
+      security: []
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Invite' } } } }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /invites/{token}/accept:
+    parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+    post:
+      tags: [Invites]
+      summary: Accept an invite (must be authenticated as the invited email)
+      responses:
+        '200': { description: Accepted; membership created }
+
+  # ────────────────────── CONNECTED ACCOUNTS ──────────────────
+  /organizations/{orgSlug}/connected-accounts:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [Connected Accounts]
+      summary: List connected social accounts
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/ConnectedAccount' } } } } }
+
+  /organizations/{orgSlug}/connected-accounts/whatsapp:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Connected Accounts]
+      summary: Connect a WhatsApp number (Meta Cloud API, key-based)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectWhatsappRequest' }
+            example:
+              accessToken: EAAG...
+              phoneNumberId: '109876543210987'
+              displayName: Acme Support
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedAccount' } } } }
+
+  /organizations/{orgSlug}/connected-accounts/instagram/oauth:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Connected Accounts]
+      summary: Complete Instagram OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectOAuthRequest' }
+            example: { code: AQD..., redirectUri: 'https://app.your-domain.com/oauth/callback' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedAccount' } } } }
+
+  /organizations/{orgSlug}/connected-accounts/facebook/oauth:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Connected Accounts]
+      summary: Complete Facebook OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectOAuthRequest' }
+            example: { code: AQD..., redirectUri: 'https://app.your-domain.com/oauth/callback' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedAccount' } } } }
+
+  /organizations/{orgSlug}/connected-accounts/linkedin/oauth:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Connected Accounts]
+      summary: Complete LinkedIn OAuth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectOAuthRequest' }
+            example: { code: AQT..., redirectUri: 'https://app.your-domain.com/oauth/callback' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedAccount' } } } }
+
+  /organizations/{orgSlug}/connected-accounts/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Connected Accounts]
+      summary: Get a connected account
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/ConnectedAccount' } } } }
+    delete:
+      tags: [Connected Accounts]
+      summary: Disconnect an account
+      responses:
+        '200': { description: Disconnected }
+
+  # ────────────────────────── CONTACTS ────────────────────────
+  /organizations/{orgSlug}/contacts:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: search, in: query, schema: { type: string } }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    get:
+      tags: [Contacts]
+      summary: List / search contacts (cursor-paginated)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Contact' } }
+                  nextCursor: { type: [string, 'null'] }
+
+  /organizations/{orgSlug}/contacts/{contactId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: contactId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Contacts]
+      summary: Get a contact
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Contact' } } } }
+    patch:
+      tags: [Contacts]
+      summary: Update a contact
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateContactRequest' }
+            example:
+              displayName: Jane Doe
+              email: jane@example.com
+              phone: '+2348012345678'
+              tags: [vip, returning]
+              notes: Prefers WhatsApp
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Contact' } } } }
+
+  /organizations/{orgSlug}/contacts/{contactId}/merge/{targetId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: contactId, in: path, required: true, schema: { type: string }, description: Source contact (merged away) }
+      - { name: targetId, in: path, required: true, schema: { type: string }, description: Target contact (kept) }
+    post:
+      tags: [Contacts]
+      summary: Merge the source contact into the target
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Contact' } } } }
+
+  # ──────────────────────── CONVERSATIONS ─────────────────────
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/conversations:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { name: status, in: query, schema: { $ref: '#/components/schemas/ConversationStatus' } }
+      - { name: channel, in: query, schema: { $ref: '#/components/schemas/ConversationChannel' } }
+      - { name: isStarred, in: query, schema: { type: boolean } }
+      - { name: assignedToId, in: query, schema: { type: string } }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    get:
+      tags: [Conversations]
+      summary: List conversations (cursor-paginated, filterable)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Conversation' } }
+                  nextCursor: { type: [string, 'null'] }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/conversations/{conversationId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { $ref: '#/components/parameters/conversationId' }
+    get:
+      tags: [Conversations]
+      summary: Get a conversation
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+    patch:
+      tags: [Conversations]
+      summary: Update status / star / assignment
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateConversationRequest' }
+            example: { status: RESOLVED, isStarred: true }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/conversations/{conversationId}/read:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { $ref: '#/components/parameters/conversationId' }
+    post:
+      tags: [Conversations]
+      summary: Mark a conversation as read (resets unreadCount)
+      responses:
+        '200': { description: Marked read }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/conversations/{conversationId}/labels/{labelId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { $ref: '#/components/parameters/conversationId' }
+      - { name: labelId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [Conversations]
+      summary: Add a label to a conversation
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Conversation' } } } }
+    delete:
+      tags: [Conversations]
+      summary: Remove a label from a conversation
+      responses:
+        '200': { description: Removed }
+
+  # ────────────────────────── MESSAGES ────────────────────────
+  /organizations/{orgSlug}/conversations/{conversationId}/messages:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/conversationId' }
+      - { name: cursor, in: query, schema: { type: string } }
+      - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+    get:
+      tags: [Messages]
+      summary: List messages in a conversation (cursor-paginated)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Message' } }
+                  nextCursor: { type: [string, 'null'] }
+    post:
+      tags: [Messages]
+      summary: Send an outbound message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SendMessageRequest' }
+            examples:
+              text:
+                summary: Plain text reply
+                value: { text: 'Hi! How can we help today?' }
+              media:
+                summary: Media reply
+                value: { mediaUrl: 'https://cdn.example.com/x.jpg', mediaType: image }
+              reply:
+                summary: Reply to a specific message
+                value: { text: 'Sure, here you go', replyToId: msg_123 }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } } }
+
+  # ─────────────────────────── LABELS ─────────────────────────
+  /organizations/{orgSlug}/labels:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [Labels]
+      summary: List org labels
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Label' } } } } }
+    post:
+      tags: [Labels]
+      summary: Create a label
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLabelRequest' }
+            example: { name: Urgent, color: '#ef4444' }
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Label' } } } }
+
+  /organizations/{orgSlug}/labels/{labelId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: labelId, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [Labels]
+      summary: Update a label
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLabelRequest' }
+            example: { name: High priority, color: '#f97316' }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Label' } } } }
+    delete:
+      tags: [Labels]
+      summary: Delete a label
+      responses:
+        '204': { description: Deleted }
+
+  # ───────────────────────── PUBLISHING ───────────────────────
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/posts:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { name: status, in: query, schema: { $ref: '#/components/schemas/PostStatus' } }
+      - { name: from, in: query, schema: { type: string, format: date-time } }
+      - { name: to, in: query, schema: { type: string, format: date-time } }
+    get:
+      tags: [Publishing]
+      summary: List posts
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Post' } } } } }
+    post:
+      tags: [Publishing]
+      summary: Create a post (draft, or scheduled if scheduledAt is set)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePostRequest' }
+            example:
+              connectedAccountId: acc_123
+              caption: 'Launch day! 🚀 #newproduct'
+              scheduledAt: '2026-08-01T09:00:00.000Z'
+              mediaUrls: ['https://cdn.example.com/hero.jpg']
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/posts/{postId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { name: postId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Publishing]
+      summary: Get a post
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+    patch:
+      tags: [Publishing]
+      summary: Update a post (only while not published/publishing)
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePostRequest' }
+            example: { caption: 'Updated caption', scheduledAt: null }
+      responses:
+        '200': { content: { application/json: { schema: { $ref: '#/components/schemas/Post' } } } }
+    delete:
+      tags: [Publishing]
+      summary: Delete a post
+      responses:
+        '200': { description: Deleted }
+
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/posts/{postId}/publish:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+      - { name: postId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [Publishing]
+      summary: Publish a post now (enqueues the publisher job)
+      responses:
+        '200': { content: { application/json: { example: { message: Publishing queued } } } }
+
+  # ─────────────────────────── MEDIA ──────────────────────────
+  /organizations/{orgSlug}/media:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: workspaceId, in: query, schema: { type: string } }
+    get:
+      tags: [Media]
+      summary: List media library assets
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Media' } } } } }
+
+  /organizations/{orgSlug}/media/presign:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Media]
+      summary: Get a pre-signed S3 PUT URL for a direct upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: { mimeType: { type: string }, filename: { type: string } }
+              required: [mimeType, filename]
+            example: { mimeType: image/jpeg, filename: hero.jpg }
+      responses:
+        '201':
+          content:
+            application/json:
+              example:
+                uploadUrl: 'https://bucket.s3.amazonaws.com/media/...&X-Amz-Signature=...'
+                key: media/org_1/uuid.jpg
+                publicUrl: 'https://cdn.example.com/media/org_1/uuid.jpg'
+
+  /organizations/{orgSlug}/media/confirm:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [Media]
+      summary: Confirm an upload and record the media asset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConfirmMediaRequest' }
+            example:
+              key: media/org_1/uuid.jpg
+              originalName: hero.jpg
+              mimeType: image/jpeg
+              sizeBytes: 284512
+              width: 1920
+              height: 1080
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/Media' } } } }
+
+  /organizations/{orgSlug}/media/{mediaId}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: mediaId, in: path, required: true, schema: { type: string } }
+    delete:
+      tags: [Media]
+      summary: Delete a media asset
+      responses:
+        '204': { description: Deleted }
+
+  # ──────────────────────────── AI ────────────────────────────
+  /organizations/{orgSlug}/ai/summarize:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [AI]
+      summary: Summarize a conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, properties: { conversationId: { type: string } }, required: [conversationId] }
+            example: { conversationId: conv_123 }
+      responses:
+        '200': { content: { application/json: { example: { summary: 'Customer asked about a delayed order; agent confirmed reshipment.' } } } }
+
+  /organizations/{orgSlug}/ai/rewrite:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [AI]
+      summary: Rewrite text in the org's brand voice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RewriteRequest' }
+            example: { text: 'we cant do that', brandVoiceId: bv_123 }
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                text: "I'm sorry, that isn't something we're able to do right now."
+
+  /organizations/{orgSlug}/ai/translate:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [AI]
+      summary: Translate text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TranslateRequest' }
+            example: { text: 'Good morning, how can I help?', targetLanguage: Yoruba }
+      responses:
+        '200': { content: { application/json: { example: { text: 'E kaaro, bawo ni mo se le ran yin lowo?' } } } }
+
+  /organizations/{orgSlug}/ai/hashtags:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [AI]
+      summary: Generate hashtags for a caption
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HashtagsRequest' }
+            example: { caption: 'New arrivals dropping this weekend', platform: INSTAGRAM }
+      responses:
+        '200': { content: { application/json: { example: { hashtags: ['#newarrivals', '#shopnow', '#weekendvibes'] } } } }
+
+  /organizations/{orgSlug}/ai/optimize:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    post:
+      tags: [AI]
+      summary: Rewrite a caption optimized for a platform
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HashtagsRequest' }
+            example: { caption: 'Our biggest sale is here', platform: LINKEDIN }
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                caption: "We're excited to announce our largest sale of the year..."
+
+  /organizations/{orgSlug}/ai/brand-voices:
+    parameters: [{ $ref: '#/components/parameters/orgSlug' }]
+    get:
+      tags: [AI]
+      summary: List brand voices
+      responses:
+        '200': { content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/BrandVoice' } } } } }
+    post:
+      tags: [AI]
+      summary: Create a brand voice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBrandVoiceRequest' }
+            example:
+              name: Friendly & concise
+              tone: warm, helpful, professional
+              examples: ['Happy to help!', 'Let me sort that out for you.']
+              instructions: Avoid jargon. Keep replies under 3 sentences.
+              isDefault: true
+      responses:
+        '201': { content: { application/json: { schema: { $ref: '#/components/schemas/BrandVoice' } } } }
+
+  /organizations/{orgSlug}/ai/brand-voices/{id}:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: id, in: path, required: true, schema: { type: string } }
+    delete:
+      tags: [AI]
+      summary: Delete a brand voice
+      responses:
+        '200': { content: { application/json: { example: { ok: true } } } }
+
+  # ─────────────────────── NOTIFICATIONS ──────────────────────
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications (cursor-paginated)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: array, items: { $ref: '#/components/schemas/Notification' } }
+                  nextCursor: { type: [string, 'null'] }
+
+  /notifications/unread-count:
+    get:
+      tags: [Notifications]
+      summary: Unread notification count
+      responses:
+        '200': { content: { application/json: { example: { count: 3 } } } }
+
+  /notifications/read-all:
+    patch:
+      tags: [Notifications]
+      summary: Mark all notifications read
+      responses:
+        '200': { description: All marked read }
+
+  /notifications/{id}/read:
+    parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+    patch:
+      tags: [Notifications]
+      summary: Mark one notification read
+      responses:
+        '200': { description: Marked read }
+
+  # ─────────────────────────── SEARCH ─────────────────────────
+  /organizations/{orgSlug}/search:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { name: q, in: query, required: true, schema: { type: string } }
+    get:
+      tags: [Search]
+      summary: Full-text search across conversations, contacts, and messages
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversations: { type: array, items: { $ref: '#/components/schemas/Conversation' } }
+                  contacts: { type: array, items: { $ref: '#/components/schemas/Contact' } }
+                  messages: { type: array, items: { $ref: '#/components/schemas/Message' } }
+
+  # ────────────────────────── ANALYTICS ───────────────────────
+  /organizations/{orgSlug}/workspaces/{workspaceSlug}/analytics:
+    parameters:
+      - { $ref: '#/components/parameters/orgSlug' }
+      - { $ref: '#/components/parameters/workspaceSlug' }
+    get:
+      tags: [Analytics]
+      summary: Workspace analytics summary
+      responses:
+        '200':
+          content:
+            application/json:
+              example:
+                totalConversations: 128
+                openConversations: 14
+                avgFirstResponseSeconds: 420
+                messagesByChannel: { WHATSAPP: 300, INSTAGRAM: 120, FACEBOOK: 60 }
+
+  # ────────────────────────── WEBHOOKS ────────────────────────
+  /webhooks/{platform}:
+    parameters: [{ name: platform, in: path, required: true, schema: { type: string, example: instagram } }]
+    get:
+      tags: [Webhooks]
+      summary: Platform webhook verification challenge (Meta)
+      security: []
+      parameters:
+        - { name: hub.mode, in: query, schema: { type: string, example: subscribe } }
+        - { name: hub.challenge, in: query, schema: { type: string, example: '1158201444' } }
+        - { name: hub.verify_token, in: query, schema: { type: string } }
+      responses:
+        '200': { description: Echoes hub.challenge when the token matches, content: { text/plain: { example: '1158201444' } } }
+        '403': { description: Forbidden (mode not subscribe, or token mismatch) }
+    post:
+      tags: [Webhooks]
+      summary: Inbound platform events (enqueued for processing)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            example:
+              object: instagram
+              entry:
+                - id: '17841400000000000'
+                  messaging:
+                    - sender: { id: '1089934...' }
+                      recipient: { id: '17841400...' }
+                      timestamp: 1700000000000
+                      message: { mid: 'mid.xyz', text: 'Hi, is this in stock?' }
+      responses:
+        '200': { content: { application/json: { example: { status: ok } } } }
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: HttpOnly session cookie set by login/register.
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Alternatively, send the access token as a Bearer header.
+
+  parameters:
+    orgSlug:
+      name: orgSlug
+      in: path
+      required: true
+      schema: { type: string }
+      example: acme-retail
+    workspaceSlug:
+      name: workspaceSlug
+      in: path
+      required: true
+      schema: { type: string }
+      example: support
+    conversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema: { type: string }
+      example: conv_123
+    userId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string }
+      example: usr_123
+
+  responses:
+    ValidationError:
+      description: Request body failed validation
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { statusCode: 400, message: ['email must be an email'], error: Bad Request }
+    Unauthorized:
+      description: Missing or invalid credentials
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { statusCode: 401, message: Unauthorized }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { statusCode: 404, message: Not Found }
+    Conflict:
+      description: Resource already exists
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+          example: { statusCode: 409, message: Email already in use, error: Conflict }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        statusCode: { type: integer, example: 400 }
+        message:
+          oneOf:
+            - { type: string }
+            - { type: array, items: { type: string } }
+        error: { type: string }
+
+    OrgRole:
+      type: string
+      enum: [OWNER, ADMIN, MEMBER, VIEWER]
+    ConversationStatus:
+      type: string
+      enum: [OPEN, PENDING, RESOLVED, ARCHIVED]
+    ConversationChannel:
+      type: string
+      enum: [WHATSAPP, INSTAGRAM, FACEBOOK, LINKEDIN]
+    PostStatus:
+      type: string
+      enum: [DRAFT, SCHEDULED, PUBLISHING, PUBLISHED, FAILED]
+
+    RegisterRequest:
+      type: object
+      required: [email, fullName, password]
+      properties:
+        email: { type: string, format: email }
+        fullName: { type: string, minLength: 2, maxLength: 100 }
+        password: { type: string, minLength: 8, maxLength: 72 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+    VerifyTotpRequest:
+      type: object
+      required: [tempToken, code]
+      properties:
+        tempToken: { type: string }
+        code: { type: string, pattern: '^\d{6}$' }
+    TotpCodeRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, pattern: '^\d{6}$' }
+    UpdateProfileRequest:
+      type: object
+      properties:
+        fullName: { type: string }
+        avatarUrl: { type: string }
+        timezone: { type: string, example: Africa/Lagos }
+        locale: { type: string, example: en-NG }
+        currency: { type: string, example: NGN }
+
+    User:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        avatarUrl: { type: [string, 'null'] }
+        timezone: { type: string }
+        locale: { type: string }
+        currency: { type: string }
+        emailVerified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    CreateOrganizationRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        timezone: { type: string }
+        locale: { type: string }
+        currency: { type: string }
+    Organization:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        timezone: { type: string }
+        locale: { type: string }
+        currency: { type: string }
+        createdAt: { type: string, format: date-time }
+    OrganizationMember:
+      type: object
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        role: { $ref: '#/components/schemas/OrgRole' }
+        user: { $ref: '#/components/schemas/User' }
+
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 100 }
+        description: { type: string, maxLength: 500 }
+        timezone: { type: string }
+    Workspace:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: [string, 'null'] }
+        organizationId: { type: string }
+        createdAt: { type: string, format: date-time }
+    AddWorkspaceMemberRequest:
+      type: object
+      required: [userId]
+      properties:
+        userId: { type: string }
+        role: { $ref: '#/components/schemas/OrgRole' }
+
+    CreateInviteRequest:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/OrgRole' }
+    Invite:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: '#/components/schemas/OrgRole' }
+        token: { type: string }
+        expiresAt: { type: string, format: date-time }
+        acceptedAt: { type: [string, 'null'], format: date-time }
+
+    ConnectWhatsappRequest:
+      type: object
+      required: [accessToken, phoneNumberId, displayName]
+      properties:
+        accessToken: { type: string }
+        phoneNumberId: { type: string }
+        displayName: { type: string }
+        workspaceId: { type: string }
+    ConnectOAuthRequest:
+      type: object
+      required: [code, redirectUri]
+      properties:
+        code: { type: string, description: OAuth authorization code }
+        redirectUri: { type: string }
+        state: { type: string }
+        workspaceId: { type: string }
+    ConnectedAccount:
+      type: object
+      properties:
+        id: { type: string }
+        platform: { $ref: '#/components/schemas/ConversationChannel' }
+        platformAccountId: { type: string }
+        displayName: { type: string }
+        username: { type: [string, 'null'] }
+        avatarUrl: { type: [string, 'null'] }
+        status: { type: string, enum: [ACTIVE, ERROR, DISCONNECTED] }
+        createdAt: { type: string, format: date-time }
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        displayName: { type: string }
+        email: { type: string, format: email }
+        phone: { type: string, description: E.164, example: '+2348012345678' }
+        notes: { type: string }
+        tags: { type: array, items: { type: string } }
+        timezone: { type: string }
+        locale: { type: string }
+    Contact:
+      type: object
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        email: { type: [string, 'null'] }
+        phone: { type: [string, 'null'] }
+        avatarUrl: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+        tags: { type: array, items: { type: string } }
+        identities:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              platform: { $ref: '#/components/schemas/ConversationChannel' }
+              platformUserId: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    UpdateConversationRequest:
+      type: object
+      properties:
+        status: { $ref: '#/components/schemas/ConversationStatus' }
+        isStarred: { type: boolean }
+        assignedToId: { type: [string, 'null'] }
+        workspaceId: { type: [string, 'null'] }
+    Conversation:
+      type: object
+      properties:
+        id: { type: string }
+        organizationId: { type: string }
+        workspaceId: { type: [string, 'null'] }
+        contactId: { type: string }
+        channel: { $ref: '#/components/schemas/ConversationChannel' }
+        status: { $ref: '#/components/schemas/ConversationStatus' }
+        isStarred: { type: boolean }
+        assignedToId: { type: [string, 'null'] }
+        lastMessageAt: { type: [string, 'null'], format: date-time }
+        lastMessagePreview: { type: [string, 'null'] }
+        unreadCount: { type: integer }
+        contact: { $ref: '#/components/schemas/Contact' }
+        labels: { type: array, items: { $ref: '#/components/schemas/Label' } }
+
+    SendMessageRequest:
+      type: object
+      description: At least one of `text` or `mediaUrl` is required.
+      properties:
+        text: { type: string, minLength: 1 }
+        mediaUrl: { type: string }
+        mediaType: { type: string, enum: [image, video, audio, document] }
+        replyToId: { type: string }
+    Message:
+      type: object
+      properties:
+        id: { type: string }
+        conversationId: { type: string }
+        direction: { type: string, enum: [INBOUND, OUTBOUND] }
+        type: { type: string }
+        status: { type: string, enum: [SENDING, SENT, DELIVERED, READ, FAILED] }
+        content: { type: [string, 'null'] }
+        sentAt: { type: string, format: date-time }
+        replyToId: { type: [string, 'null'] }
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              type: { type: string }
+              url: { type: string }
+
+    CreateLabelRequest:
+      type: object
+      required: [name, color]
+      properties:
+        name: { type: string }
+        color: { type: string, description: Hex color, example: '#6366f1' }
+    Label:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color: { type: string }
+        organizationId: { type: string }
+
+    CreatePostRequest:
+      type: object
+      required: [connectedAccountId]
+      properties:
+        connectedAccountId: { type: string }
+        caption: { type: string, maxLength: 5000 }
+        scheduledAt: { type: [string, 'null'], format: date-time }
+        mediaUrls: { type: array, items: { type: string } }
+    Post:
+      type: object
+      properties:
+        id: { type: string }
+        connectedAccountId: { type: string }
+        caption: { type: [string, 'null'] }
+        status: { $ref: '#/components/schemas/PostStatus' }
+        scheduledAt: { type: [string, 'null'], format: date-time }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        platformUrl: { type: [string, 'null'] }
+        errorMessage: { type: [string, 'null'] }
+        media:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              url: { type: string }
+              order: { type: integer }
+
+    ConfirmMediaRequest:
+      type: object
+      required: [key, originalName, mimeType, sizeBytes]
+      properties:
+        key: { type: string }
+        originalName: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        workspaceId: { type: string }
+        width: { type: integer }
+        height: { type: integer }
+    Media:
+      type: object
+      properties:
+        id: { type: string }
+        filename: { type: string }
+        originalName: { type: string }
+        mimeType: { type: string }
+        sizeBytes: { type: integer }
+        url: { type: string }
+        width: { type: [integer, 'null'] }
+        height: { type: [integer, 'null'] }
+        createdAt: { type: string, format: date-time }
+
+    RewriteRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 5000 }
+        brandVoiceId: { type: string }
+    TranslateRequest:
+      type: object
+      required: [text, targetLanguage]
+      properties:
+        text: { type: string, maxLength: 5000 }
+        targetLanguage: { type: string, example: French }
+    HashtagsRequest:
+      type: object
+      required: [caption, platform]
+      properties:
+        caption: { type: string, maxLength: 3000 }
+        platform: { type: string, example: INSTAGRAM }
+    CreateBrandVoiceRequest:
+      type: object
+      required: [name, tone, examples]
+      properties:
+        name: { type: string }
+        tone: { type: string }
+        examples: { type: array, items: { type: string } }
+        instructions: { type: string }
+        isDefault: { type: boolean }
+    BrandVoice:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        tone: { type: string }
+        examples: { type: array, items: { type: string } }
+        instructions: { type: [string, 'null'] }
+        isDefault: { type: boolean }
+
+    Notification:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        body: { type: [string, 'null'] }
+        resourceId: { type: [string, 'null'] }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
