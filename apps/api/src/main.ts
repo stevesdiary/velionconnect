@@ -6,11 +6,16 @@ const cookieParser = require('cookie-parser') as typeof import('cookie-parser');
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './gateways/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
   });
+
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
 
   app.use(helmet());
   app.use(cookieParser());
