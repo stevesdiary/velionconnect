@@ -1,11 +1,11 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 const cookieParser = require('cookie-parser') as typeof import('cookie-parser');
 import helmet from 'helmet';
 
 import { AppModule } from './app.module';
+import { setupSwagger } from './config/swagger';
 import { RedisIoAdapter } from './gateways/redis-io.adapter';
 
 async function bootstrap() {
@@ -37,16 +37,7 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('VelionConnect API')
-    .setDescription('The VelionConnect REST API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .addCookieAuth('access_token')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  setupSwagger(app);
 
   const port = parseInt(process.env['PORT'] ?? '3001', 10);
   await app.listen(port);

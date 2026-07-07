@@ -1,0 +1,951 @@
+{
+  "info": {
+    "name": "VelionConnect API",
+    "_postman_id": "b1a9c0de-1234-4a5b-9c0d-velionconnect01",
+    "description": "VelionConnect REST API collection with sample payloads.\n\n## Setup\n1. Import the accompanying environment `velionconnect.postman_environment.json`.\n2. Set `baseUrl` (default `http://localhost:3001/api/v1`).\n3. Run **Auth > Login** (or **Register**). The server sets HttpOnly `access_token` / `refresh_token` cookies which Postman stores in its cookie jar and sends automatically on subsequent requests.\n4. Alternatively, paste an access token into the `accessToken` variable to use Bearer auth.\n5. Fill in `orgSlug` and `workspaceSlug` after creating an organization.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api/v1" },
+    { "key": "orgSlug", "value": "acme-retail" },
+    { "key": "workspaceSlug", "value": "support" },
+    { "key": "accessToken", "value": "" },
+    { "key": "conversationId", "value": "" },
+    { "key": "contactId", "value": "" },
+    { "key": "connectedAccountId", "value": "" },
+    { "key": "postId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane@example.com\",\n  \"fullName\": \"Jane Doe\",\n  \"password\": \"sup3r-secret-pw\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"jane@example.com\",\n  \"password\": \"sup3r-secret-pw\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2FA Verify",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/verify",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "verify"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tempToken\": \"<from login response>\",\n  \"code\": \"123456\"\n}"
+            }
+          }
+        },
+        {
+          "name": "2FA Setup",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/setup",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "setup"]
+            }
+          }
+        },
+        {
+          "name": "2FA Enable",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/2fa/enable",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "2fa", "enable"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"123456\"\n}" }
+          }
+        },
+        {
+          "name": "Magic Link - Request",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/auth/magic-link/request",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "magic-link", "request"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"jane@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "refresh"]
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/auth/me", "host": ["{{baseUrl}}"], "path": ["auth", "me"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get my profile",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update my profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Jane A. Doe\",\n  \"timezone\": \"Africa/Lagos\",\n  \"locale\": \"en-NG\"\n}"
+            }
+          }
+        },
+        {
+          "name": "My organizations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/users/me/organizations",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me", "organizations"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "Create organization",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Acme Retail\",\n  \"timezone\": \"Africa/Lagos\",\n  \"locale\": \"en-NG\",\n  \"currency\": \"NGN\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get organization",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}"]
+            }
+          }
+        },
+        {
+          "name": "Update organization",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Acme Retail Ltd\"\n}" }
+          }
+        },
+        {
+          "name": "List members",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "members"]
+            }
+          }
+        },
+        {
+          "name": "Update member role",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/members/usr_123/role",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "members", "usr_123", "role"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"role\": \"ADMIN\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workspaces",
+      "item": [
+        {
+          "name": "List workspaces",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "workspaces"]
+            }
+          }
+        },
+        {
+          "name": "Create workspace",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "workspaces"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Support\",\n  \"description\": \"Customer support team\",\n  \"timezone\": \"Africa/Lagos\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get workspace",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "workspaces", "{{workspaceSlug}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Invites",
+      "item": [
+        {
+          "name": "Create invite",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/invites",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "invites"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"teammate@example.com\",\n  \"role\": \"MEMBER\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List invites",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/invites",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "invites"]
+            }
+          }
+        },
+        {
+          "name": "Accept invite",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/invites/<token>/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["invites", "<token>", "accept"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connected Accounts",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/connected-accounts",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "connected-accounts"]
+            }
+          }
+        },
+        {
+          "name": "Connect WhatsApp",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/connected-accounts/whatsapp",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "connected-accounts", "whatsapp"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"accessToken\": \"EAAG...\",\n  \"phoneNumberId\": \"109876543210987\",\n  \"displayName\": \"Acme Support\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Instagram OAuth",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/connected-accounts/instagram/oauth",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "connected-accounts", "instagram", "oauth"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"AQD...\",\n  \"redirectUri\": \"https://app.your-domain.com/oauth/callback\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Contacts",
+      "item": [
+        {
+          "name": "List / search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/contacts?search=&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "contacts"],
+              "query": [
+                { "key": "search", "value": "" },
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get contact",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "contacts", "{{contactId}}"]
+            }
+          }
+        },
+        {
+          "name": "Update contact",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/contacts/{{contactId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "contacts", "{{contactId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"phone\": \"+2348012345678\",\n  \"tags\": [\"vip\", \"returning\"],\n  \"notes\": \"Prefers WhatsApp\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Merge into target",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/contacts/{{contactId}}/merge/<targetId>",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "contacts",
+                "{{contactId}}",
+                "merge",
+                "<targetId>"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Conversations",
+      "item": [
+        {
+          "name": "List (filterable)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/conversations?status=OPEN",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "conversations"
+              ],
+              "query": [{ "key": "status", "value": "OPEN" }]
+            }
+          }
+        },
+        {
+          "name": "Get conversation",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/conversations/{{conversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "conversations",
+                "{{conversationId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update (resolve / star)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/conversations/{{conversationId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "conversations",
+                "{{conversationId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"RESOLVED\",\n  \"isStarred\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Mark read",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/conversations/{{conversationId}}/read",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "conversations",
+                "{{conversationId}}",
+                "read"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add label",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/conversations/{{conversationId}}/labels/<labelId>",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "conversations",
+                "{{conversationId}}",
+                "labels",
+                "<labelId>"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "List messages",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/conversations/{{conversationId}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send message (text)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/conversations/{{conversationId}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Hi! How can we help today?\"\n}" }
+          }
+        },
+        {
+          "name": "Send message (media)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/conversations/{{conversationId}}/messages",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "conversations",
+                "{{conversationId}}",
+                "messages"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mediaUrl\": \"https://cdn.example.com/receipt.jpg\",\n  \"mediaType\": \"image\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Labels",
+      "item": [
+        {
+          "name": "List labels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/labels",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "labels"]
+            }
+          }
+        },
+        {
+          "name": "Create label",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/labels",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "labels"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Urgent\",\n  \"color\": \"#ef4444\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Publishing",
+      "item": [
+        {
+          "name": "List posts",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/posts",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "workspaces", "{{workspaceSlug}}", "posts"]
+            }
+          }
+        },
+        {
+          "name": "Create post (scheduled)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/posts",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "workspaces", "{{workspaceSlug}}", "posts"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"connectedAccountId\": \"{{connectedAccountId}}\",\n  \"caption\": \"Launch day! 🚀 #newproduct\",\n  \"scheduledAt\": \"2026-08-01T09:00:00.000Z\",\n  \"mediaUrls\": [\"https://cdn.example.com/hero.jpg\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Publish now",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/posts/{{postId}}/publish",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "posts",
+                "{{postId}}",
+                "publish"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Media",
+      "item": [
+        {
+          "name": "List media",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/media",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "media"]
+            }
+          }
+        },
+        {
+          "name": "Presign upload",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/media/presign",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "media", "presign"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mimeType\": \"image/jpeg\",\n  \"filename\": \"hero.jpg\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Confirm upload",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/media/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "media", "confirm"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"key\": \"media/org_1/uuid.jpg\",\n  \"originalName\": \"hero.jpg\",\n  \"mimeType\": \"image/jpeg\",\n  \"sizeBytes\": 284512,\n  \"width\": 1920,\n  \"height\": 1080\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AI",
+      "item": [
+        {
+          "name": "Summarize conversation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/ai/summarize",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "ai", "summarize"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"conversationId\": \"{{conversationId}}\"\n}" }
+          }
+        },
+        {
+          "name": "Rewrite (brand voice)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/ai/rewrite",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "ai", "rewrite"]
+            },
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"we cant do that\"\n}" }
+          }
+        },
+        {
+          "name": "Translate",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/ai/translate",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "ai", "translate"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Good morning, how can I help?\",\n  \"targetLanguage\": \"Yoruba\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Hashtags",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/ai/hashtags",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "ai", "hashtags"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"caption\": \"New arrivals dropping this weekend\",\n  \"platform\": \"INSTAGRAM\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create brand voice",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/ai/brand-voices",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "ai", "brand-voices"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Friendly & concise\",\n  \"tone\": \"warm, helpful, professional\",\n  \"examples\": [\"Happy to help!\", \"Let me sort that out for you.\"],\n  \"instructions\": \"Avoid jargon. Keep replies under 3 sentences.\",\n  \"isDefault\": true\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"]
+            }
+          }
+        },
+        {
+          "name": "Unread count",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/unread-count",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark all read",
+          "request": {
+            "method": "PATCH",
+            "url": {
+              "raw": "{{baseUrl}}/notifications/read-all",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications", "read-all"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "Search",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/search?q=order",
+              "host": ["{{baseUrl}}"],
+              "path": ["organizations", "{{orgSlug}}", "search"],
+              "query": [{ "key": "q", "value": "order" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Workspace analytics",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/organizations/{{orgSlug}}/workspaces/{{workspaceSlug}}/analytics",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "organizations",
+                "{{orgSlug}}",
+                "workspaces",
+                "{{workspaceSlug}}",
+                "analytics"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Verify challenge (Meta)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/instagram?hub.mode=subscribe&hub.challenge=1158201444&hub.verify_token=your-verify-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "instagram"],
+              "query": [
+                { "key": "hub.mode", "value": "subscribe" },
+                { "key": "hub.challenge", "value": "1158201444" },
+                { "key": "hub.verify_token", "value": "your-verify-token" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Inbound event (Instagram DM)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/webhooks/instagram",
+              "host": ["{{baseUrl}}"],
+              "path": ["webhooks", "instagram"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"object\": \"instagram\",\n  \"entry\": [\n    {\n      \"id\": \"17841400000000000\",\n      \"messaging\": [\n        {\n          \"sender\": { \"id\": \"1089934...\" },\n          \"recipient\": { \"id\": \"17841400...\" },\n          \"timestamp\": 1700000000000,\n          \"message\": { \"mid\": \"mid.xyz\", \"text\": \"Hi, is this in stock?\" }\n        }\n      ]\n    }\n  ]\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
